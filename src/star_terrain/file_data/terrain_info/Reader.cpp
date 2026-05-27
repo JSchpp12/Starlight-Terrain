@@ -1,6 +1,7 @@
-#include "star_terrain/io/TerrainInfo.hpp"
+#include "star_terrain/file_data/terrain_info/TerrainInfo.hpp"
 
-#include "star_terrain/serialization/TerrainInfo_json.hpp"
+#include "star_terrain/file_data/terrain_info/TerrainInfo_json.hpp"
+#include "star_terrain/io/ReadResult.hpp"
 
 #include <nlohmann/json.hpp>
 

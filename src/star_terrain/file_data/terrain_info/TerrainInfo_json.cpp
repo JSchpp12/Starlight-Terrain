@@ -1,8 +1,8 @@
-#include "star_terrain/serialization/TerrainInfo_json.hpp"
+#include "star_terrain/file_data/terrain_info/TerrainInfo_json.hpp"
 
-#include "star_terrain/struct/ChunkInfo.hpp"
-#include "star_terrain/struct/TerrainInfo.hpp"
-#include "star_terrain/serialization/ChunkInfo_json.hpp"
+#include "star_terrain/file_data/chunk_info/ChunkInfo.hpp"
+#include "star_terrain/file_data/terrain_info/TerrainInfo.hpp"
+#include "star_terrain/file_data/chunk_info/ChunkInfo_json.hpp"
 
 namespace star::terrain
 {

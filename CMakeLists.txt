@@ -31,16 +31,18 @@ endif()
 # ─── Sources ──────────────────────────────────────────────────────────────────
 
 set(${PROJECT_NAME}_HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/struct/ChunkInfo.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/struct/TerrainInfo.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainInfo.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/serialization/ChunkInfo_json.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/terrain_info/TerrainInfo.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/terrain_info/TerrainInfo_json.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/terrain_info/Reader.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/chunk_info/ChunkInfo.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/chunk_info/ChunkInfo_json.hpp
 )
 
 set(${PROJECT_NAME}_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainInfo.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/serialization/ChunkInfo_json.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/serialization/TerrainInfo_json.cpp)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/terrain_info/Reader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/terrain_info/TerrainInfo_json.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/chunk_info/ChunkInfo_json.cpp
+)
 
 # ─── Target ───────────────────────────────────────────────────────────────────
 

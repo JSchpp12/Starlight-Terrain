@@ -1,5 +1,5 @@
-#include "star_terrain/serialization/ChunkInfo_json.hpp"
-#include "star_terrain/struct/ChunkInfo.hpp"
+#include "star_terrain/file_data/chunk_info/ChunkInfo_json.hpp"
+#include "star_terrain/file_data/chunk_info/ChunkInfo.hpp"
 
 #include <string>
 
