@@ -8,7 +8,7 @@
 
 namespace star::terrain
 {
-struct TerrainInfo
+struct TextureDataInfo
 {
     std::string fullHeightFilePath;
     std::vector<ChunkInfo> chunks;

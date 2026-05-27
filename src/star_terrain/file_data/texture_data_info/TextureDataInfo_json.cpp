@@ -1,16 +1,16 @@
-#include "star_terrain/file_data/terrain_info/TerrainInfo_json.hpp"
+#include "star_terrain/file_data/texture_data_info/TextureDataInfo_json.hpp"
 
 #include "star_terrain/file_data/chunk_info/ChunkInfo.hpp"
-#include "star_terrain/file_data/terrain_info/TerrainInfo.hpp"
+#include "star_terrain/file_data/texture_data_info/TextureDataInfo.hpp"
 #include "star_terrain/file_data/chunk_info/ChunkInfo_json.hpp"
 
 namespace star::terrain
 {
-void to_json(nlohmann::json &j, const TerrainInfo &data)
+void to_json(nlohmann::json &j, const TextureDataInfo &data)
 {
 }
 
-void from_json(const nlohmann::json &j, TerrainInfo &data)
+void from_json(const nlohmann::json &j, TextureDataInfo &data)
 {
     data.fullHeightFilePath = j["full_terrain_file"]; 
 
