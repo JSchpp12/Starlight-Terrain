@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(starlight_common CONFIG)
+if(NOT TARGET Starlight::starlight)
+    find_dependency(starlight CONFIG)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/starlight_terrainTargets.cmake")
+
+check_required_components(starlight_terrain)
