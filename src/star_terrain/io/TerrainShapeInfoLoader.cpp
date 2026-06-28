@@ -1,6 +1,6 @@
 #include "star_terrain/io/TerrainShapeInfoLoader.hpp"
 
-#include <star_terrain/file_data/coverage_info/CoverageInfo_json.hpp>
+#include <star_terrain/file_data/CoverageInfo_json.hpp>
 
 #include <starlight/command/FileIO/ReadFromFile.hpp>
 #include <starlight/common/helpers/FileHelpers.hpp>

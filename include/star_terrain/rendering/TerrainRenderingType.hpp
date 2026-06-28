@@ -2,24 +2,24 @@
 
 #include <string>
 
-namespace star::terrain
+namespace star::terrain::rendering
 {
-enum TerrainRenderingType
+enum class Type
 {
     Flat,
     Real
 };
 
-constexpr std::string toString(TerrainRenderingType type)
+constexpr std::string toString(Type type)
 {
     switch (type)
     {
-    case (TerrainRenderingType::Flat):
+    case (Type::Flat):
         return "flat";
-    case (TerrainRenderingType::Real):
+    case (Type::Real):
         return "real";
     }
 
     return "";
 }
-} // namespace star::terrain
+} // namespace star::terrain::rendering

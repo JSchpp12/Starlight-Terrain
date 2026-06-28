@@ -1,6 +1,6 @@
 #pragma once
 
-#include "star_terrain/file_data/chunk_info/ChunkInfo.hpp"
+#include "star_terrain/file_data/ChunkInfo.hpp"
 
 #include <string>
 #include <vector>

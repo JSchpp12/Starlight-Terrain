@@ -15,6 +15,7 @@ endif()
 
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(TBB CONFIG REQUIRED)
 find_package(starlight_common CONFIG REQUIRED)
 
 if(NOT TARGET starlight_common)
@@ -26,23 +27,37 @@ if(NOT TARGET Starlight::starlight)
 endif()
 
 set(${PROJECT_NAME}_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/util/Distance.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/TerrainChunk.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/threading_wrapper/terrain_chunk/TerrainChunkProcessor.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainRenderingType.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObjectDefinition.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObject.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/FromTerrainDirLoader.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/layout/TerrainGrid.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/ReadResult.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeInfoLoader.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/texture_data_info/TextureDataInfo.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/texture_data_info/TextureDataInfo_json.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/texture_data_info/Reader.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/chunk_info/ChunkInfo.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/chunk_info/ChunkInfo_json.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/coverage_info/CoverageInfo.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/coverage_info/CoverageInfo_json.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/TextureDataInfo.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/texture_data/Reader.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/ChunkInfo.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/CoverageInfo.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/TextureDataInfo_json.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/ChunkInfo_json.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/CoverageInfo_json.hpp
 )
 
 set(${PROJECT_NAME}_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/util/Distance.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainChunk.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/threading_wrapper/terrain_chunk/TerrainChunkProcessor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainObject.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/FromTerrainDirLoader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/layout/TerrainGrid.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainShapeInfoLoader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/texture_data_info/Reader.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/texture_data_info/TextureDataInfo_json.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/chunk_info/ChunkInfo_json.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/coverage_info/CoverageInfo_json.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/texture_data/Reader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/TextureDataInfo_json.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/ChunkInfo_json.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/CoverageInfo_json.cpp
 )
 
 add_library(${PROJECT_NAME} ${LIBTYPE}
@@ -63,8 +78,8 @@ target_link_libraries(${PROJECT_NAME}
         Starlight::starlight
         starlight_common
         GDAL::GDAL
+        TBB::tbb
     PRIVATE
-        # Add private deps here
 )
 
 add_library(Starlight::terrain ALIAS ${PROJECT_NAME})

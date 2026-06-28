@@ -1,6 +1,6 @@
 #pragma once
 
-#include <star_terrain/file_data/coverage_info/CoverageInfo.hpp>
+#include <star_terrain/file_data/CoverageInfo.hpp>
 
 #include <starlight/core/CommandBus.hpp>
 

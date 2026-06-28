@@ -1,6 +1,6 @@
-#include "star_terrain/file_data/texture_data_info/Reader.hpp"
+#include "star_terrain/file_data/texture_data/Reader.hpp"
 
-#include "star_terrain/file_data/texture_data_info/TextureDataInfo_json.hpp"
+#include "star_terrain/file_data/TextureDataInfo_json.hpp"
 #include "star_terrain/io/ReadResult.hpp"
 
 #include <nlohmann/json.hpp>

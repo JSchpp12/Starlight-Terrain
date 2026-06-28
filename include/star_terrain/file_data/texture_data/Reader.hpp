@@ -1,6 +1,6 @@
 #pragma once
 
-#include "star_terrain/file_data/texture_data_info/TextureDataInfo.hpp"
+#include "star_terrain/file_data/TextureDataInfo.hpp"
 #include "star_terrain/io/ReadResult.hpp"
 
 #include <string>

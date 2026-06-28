@@ -1,5 +1,5 @@
-#include "star_terrain/file_data/coverage_info/CoverageInfo_json.hpp"
-#include "star_terrain/file_data/coverage_info/CoverageInfo.hpp"
+#include "star_terrain/file_data/CoverageInfo_json.hpp"
+#include "star_terrain/file_data/CoverageInfo.hpp"
 
 #include <string>
 
