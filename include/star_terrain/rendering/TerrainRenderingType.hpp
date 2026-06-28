@@ -22,4 +22,13 @@ constexpr std::string toString(Type type)
 
     return "";
 }
+
+constexpr Type fromString(std::string_view str)
+{
+    if (str == "flat")
+        return Type::Flat;
+    if (str == "real")
+        return Type::Real;
+    return Type::Flat;
+}
 } // namespace star::terrain::rendering
