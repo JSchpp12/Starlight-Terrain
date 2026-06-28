@@ -6,8 +6,6 @@ project(starlight_terrain
     VERSION 1.0.0
 )
 
-# ─── Options ──────────────────────────────────────────────────────────────────
-
 option(STARLIGHT_TERRAIN_BUILD_SHARED "Build as shared library" OFF)
 
 set(LIBTYPE STATIC)
@@ -15,7 +13,6 @@ if(STARLIGHT_TERRAIN_BUILD_SHARED)
     set(LIBTYPE SHARED)
 endif()
 
-# ─── Dependencies ─────────────────────────────────────────────────────────────
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(starlight_common CONFIG REQUIRED)
@@ -28,9 +25,9 @@ if(NOT TARGET Starlight::starlight)
     find_package(starlight CONFIG REQUIRED)
 endif()
 
-# ─── Sources ──────────────────────────────────────────────────────────────────
-
 set(${PROJECT_NAME}_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainRenderingType.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeInfoLoader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/texture_data_info/TextureDataInfo.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/texture_data_info/TextureDataInfo_json.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/texture_data_info/Reader.hpp
@@ -41,13 +38,12 @@ set(${PROJECT_NAME}_HEADERS
 )
 
 set(${PROJECT_NAME}_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainShapeInfoLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/texture_data_info/Reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/texture_data_info/TextureDataInfo_json.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/chunk_info/ChunkInfo_json.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/coverage_info/CoverageInfo_json.cpp
 )
-
-# ─── Target ───────────────────────────────────────────────────────────────────
 
 add_library(${PROJECT_NAME} ${LIBTYPE}
     ${${PROJECT_NAME}_HEADERS}
@@ -72,8 +68,6 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 add_library(Starlight::terrain ALIAS ${PROJECT_NAME})
-
-# ─── Install ──────────────────────────────────────────────────────────────────
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
