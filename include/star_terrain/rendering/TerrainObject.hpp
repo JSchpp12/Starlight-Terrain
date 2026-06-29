@@ -1,8 +1,9 @@
 #pragma once
 
-#include "star_terrain/rendering/TerrainObjectDefinition.hpp"
 #include "star_terrain/file_data/TextureDataInfo.hpp"
+#include "star_terrain/rendering/TerrainObjectDefinition.hpp"
 
+#include "starlight/ShaderResolver.hpp"
 #include "starlight/object/StarObject.hpp"
 
 #include <filesystem>
@@ -14,7 +15,8 @@ namespace star::terrain
 class TerrainObject : public star::StarObject
 {
   public:
-    TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def);
+    TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def,
+                  star::ShaderResolver &shaderResolver);
 
     std::filesystem::path getHeightInfoFilePath() const noexcept
     {
@@ -30,13 +32,12 @@ class TerrainObject : public star::StarObject
     }
 
   protected:
-    std::unordered_map<star::Shader_Stage, star::StarShader> getShaders() override;
     std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
 
   private:
     TerrainObjectDefinition m_def;
 
-    static std::vector<std::shared_ptr<star::StarMaterial>>
-    loadMaterials(const std::filesystem::path &terrainDir, const TextureDataInfo &fileInfo);
+    static std::vector<std::shared_ptr<star::StarMaterial>> loadMaterials(const std::filesystem::path &terrainDir,
+                                                                          const TextureDataInfo &fileInfo);
 };
 } // namespace star::terrain

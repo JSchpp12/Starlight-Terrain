@@ -15,8 +15,7 @@ class FromTerrainDirLoader : public star::command::create_object::ObjectLoader
 {
   public:
     FromTerrainDirLoader(star::core::device::DeviceContext &context, TerrainObjectDefinition def);
-
-    std::shared_ptr<star::StarObject> load() override;
+    std::shared_ptr<star::StarObject> load(star::ShaderResolver &shaderResolver);
 
   private:
     star::core::device::DeviceContext &m_context;

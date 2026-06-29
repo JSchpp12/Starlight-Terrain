@@ -10,9 +10,9 @@ FromTerrainDirLoader::FromTerrainDirLoader(star::core::device::DeviceContext &co
 {
 }
 
-std::shared_ptr<star::StarObject> FromTerrainDirLoader::load()
+std::shared_ptr<star::StarObject> FromTerrainDirLoader::load(star::ShaderResolver &shaderResolver)
 {
-    return std::make_shared<TerrainObject>(m_context, m_def);
+    return std::make_shared<TerrainObject>(m_context, m_def, shaderResolver);
 }
 
 } // namespace star::terrain

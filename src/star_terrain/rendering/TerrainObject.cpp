@@ -1,7 +1,7 @@
 #include "star_terrain/rendering/TerrainObject.hpp"
 
-#include "star_terrain/generated/terrain_chunk/TerrainChunk.hpp"
 #include "star_terrain/file_data/texture_data/Reader.hpp"
+#include "star_terrain/generated/terrain_chunk/TerrainChunk.hpp"
 #include "star_terrain/io/TerrainShapeInfoLoader.hpp"
 #include "star_terrain/threading_wrapper/terrain_chunk/TerrainChunkProcessor.hpp"
 
@@ -24,21 +24,14 @@
 namespace star::terrain
 {
 
-TerrainObject::TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def)
-    : star::StarObject(loadMaterials(def.terrainDir,
-                                     std::get<1>(ReadTerrainTextureInfo((def.terrainDir / "height_info.json").string())))),
+TerrainObject::TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def,
+                             star::ShaderResolver &shaderResolver)
+    : star::StarObject(loadMaterials(
+          def.terrainDir, std::get<1>(ReadTerrainTextureInfo((def.terrainDir / "height_info.json").string())))),
       m_def(std::move(def))
 {
-}
-
-std::unordered_map<star::Shader_Stage, star::StarShader> TerrainObject::getShaders()
-{
-    std::unordered_map<star::Shader_Stage, star::StarShader> shaders;
-    shaders.insert({star::Shader_Stage::vertex,
-                    star::StarShader(m_def.vertShaderPath.string(), star::Shader_Stage::vertex)});
-    shaders.insert({star::Shader_Stage::fragment,
-                    star::StarShader(m_def.fragShaderPath.string(), star::Shader_Stage::fragment)});
-    return shaders;
+    m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
+    m_fragmentShaderHandle = shaderResolver.resolve(star::Shader_Stage::fragment);
 }
 
 std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::DeviceContext &context)
@@ -63,9 +56,9 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
         if (!setWorldCenter)
         {
             setWorldCenter = true;
-            worldCenter.z = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(),
-                                                                       shapeInfo.center.x, shapeInfo.center.y)
-                                 .value();
+            worldCenter.z = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(), shapeInfo.center.x,
+                                                                      shapeInfo.center.y)
+                                .value();
         }
 
         chunks.emplace_back(fullHeightFilePath.string(), infoPath.string(), fileInfo.chunks[i].cornerNE,
@@ -101,16 +94,16 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
     return terrainMeshes;
 }
 
-std::vector<std::shared_ptr<star::StarMaterial>>
-TerrainObject::loadMaterials(const std::filesystem::path &terrainDir, const TextureDataInfo &fileInfo)
+std::vector<std::shared_ptr<star::StarMaterial>> TerrainObject::loadMaterials(const std::filesystem::path &terrainDir,
+                                                                              const TextureDataInfo &fileInfo)
 {
     std::vector<std::shared_ptr<star::StarMaterial>> materials(fileInfo.chunks.size());
 
     for (size_t i = 0; i < fileInfo.chunks.size(); i++)
     {
         const std::filesystem::path *found = nullptr;
-        auto files = star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(
-            terrainDir.string(), fileInfo.chunks[i].textureFile);
+        auto files = star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(terrainDir.string(),
+                                                                                        fileInfo.chunks[i].textureFile);
         for (const auto &file : files)
         {
             if (file.extension() == ".ktx2")
