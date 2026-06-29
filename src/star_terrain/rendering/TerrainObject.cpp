@@ -3,7 +3,6 @@
 #include "star_terrain/file_data/texture_data/Reader.hpp"
 #include "star_terrain/generated/terrain_chunk/TerrainChunk.hpp"
 #include "star_terrain/io/TerrainShapeInfoLoader.hpp"
-#include "star_terrain/threading_wrapper/terrain_chunk/TerrainChunkProcessor.hpp"
 
 #include <starlight/common/helpers/FileHelpers.hpp>
 #include <starlight/common/materials/TextureMaterial.hpp>
@@ -23,6 +22,34 @@
 
 namespace star::terrain
 {
+
+namespace
+{
+/// Per-thread GDAL dataset holder. GDAL does not allow concurrent use of a
+/// single GDALDataset from multiple threads, so each TBB worker opens its own
+/// handle to the same height file. Closed in the destructor on the worker
+/// thread that created it.
+struct ThreadLocalDataset
+{
+    GDALDataset *ds{nullptr};
+
+    explicit ThreadLocalDataset(const std::string &path)
+    {
+        ds = static_cast<GDALDataset *>(GDALOpen(path.c_str(), GA_ReadOnly));
+        if (!ds)
+            STAR_THROW("Failed to open GDAL dataset");
+    }
+
+    ThreadLocalDataset(const ThreadLocalDataset &) = delete;
+    ThreadLocalDataset &operator=(const ThreadLocalDataset &) = delete;
+
+    ~ThreadLocalDataset()
+    {
+        if (ds)
+            GDALClose(ds);
+    }
+};
+} // namespace
 
 TerrainObject::TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def,
                              star::ShaderResolver &shaderResolver)
@@ -52,7 +79,7 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
     bool setWorldCenter = false;
     for (size_t i = 0; i < fileInfo.chunks.size(); i++)
     {
-        const auto infoPath = terrainPath / fileInfo.chunks[i].textureFile;
+        const auto chunkTexturePath = terrainPath / fileInfo.chunks[i].textureFile;
         if (!setWorldCenter)
         {
             setWorldCenter = true;
@@ -61,17 +88,22 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
                                 .value();
         }
 
-        chunks.emplace_back(fullHeightFilePath.string(), infoPath.string(), fileInfo.chunks[i].cornerNE,
+        chunks.emplace_back(fullHeightFilePath.string(), chunkTexturePath.string(), fileInfo.chunks[i].cornerNE,
                             fileInfo.chunks[i].cornerSE, fileInfo.chunks[i].cornerSW, fileInfo.chunks[i].cornerNW,
                             worldCenter, fileInfo.chunks[i].center);
     }
+
     star::core::logging::info("Launching load tasks");
 
-    tbb::enumerable_thread_specific<std::unique_ptr<processor::terrain_chunk::ThreadLocalDataset>> tls;
+    // GDAL does not allow concurrent access to a single GDALDataset, so each
+    // TBB worker opens its own handle to the same height file via
+    // enumerable_thread_specific (one dataset per thread, lazily created and
+    // destroyed on the thread that owns it).
+    tbb::enumerable_thread_specific<std::unique_ptr<ThreadLocalDataset>> tls;
     tbb::parallel_for(tbb::blocked_range<size_t>(0, chunks.size()), [&](const tbb::blocked_range<size_t> &r) {
         auto &local = tls.local();
         if (!local)
-            local = std::make_unique<processor::terrain_chunk::ThreadLocalDataset>(fullHeightFilePath.string());
+            local = std::make_unique<ThreadLocalDataset>(fullHeightFilePath.string());
 
         for (size_t i = r.begin(); i != r.end(); ++i)
         {

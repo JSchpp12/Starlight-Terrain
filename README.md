@@ -11,7 +11,6 @@ command pipeline.
 | `file_data/`     | Pure data structs describing terrain file inputs (no JSON glue here)   |
 | `serialization/` | `nlohmann::json` `to_json`/`from_json` for the `file_data/` structs      |
 | `generated/`     | `TerrainChunk` — loads a GeoTIFF region and produces a `StarMesh`        |
-| `processor/`     | TBB-based chunk processing helpers (`TerrainChunkProcessor`)            |
 | `layout/`        | `TerrainGrid` — arranges chunks into a 2D grid by center coordinates   |
 | `io/`            | Async terrain-file readers (`TerrainShapeInfoLoader`, `ReadResult`)     |
 | `rendering/`     | `TerrainObject` (renderable), `FromTerrainDirLoader` (command loader),  |
