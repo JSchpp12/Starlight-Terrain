@@ -142,20 +142,32 @@ void TerrainChunk::loadLocation(TerrainDataset &dataset, std::vector<glm::dvec3>
     const glm::dvec2 vertLineDir_west = glm::normalize(vertLine_west);
     const glm::dvec2 vertLineDir_east = glm::normalize(vertLine_east);
 
-    // calculate locations
-    for (int i = 0; i < dataset.getPixSize().y; i++)
+    vertPositions.reserve(dataset.getPixSize().y * dataset.getPixSize().x);
+
+    std::vector<Line> northLines, eastWestLines;
+    northLines.reserve(dataset.getPixSize().x);
+    for (int i = 0; i < dataset.getPixSize().x; i++)
+    {
+        const glm::dvec2 bordPosNorth = dataset.getNorthWest() + (horzLineDir_north * horzStep_north * (double)i);
+        const glm::dvec2 bordPosSouth = dataset.getSouthWest() + (horzLineDir_south * horzStep_south * (double)i);
+        northLines.push_back(Line{bordPosNorth, bordPosSouth});
+    }
+    eastWestLines.reserve(dataset.getPixSize().y);
+    for (int i{0}; i < dataset.getPixSize().y; i++)
     {
         const glm::dvec2 bordPosWest = dataset.getNorthWest() + (vertLineDir_west * vertStep_west * (double)i);
         const glm::dvec2 bordPosEast = dataset.getNorthEast() + (vertLineDir_east * vertStep_east * (double)i);
+        eastWestLines.push_back(Line{bordPosWest, bordPosEast});
+    }
 
+    vertTextureCoords.reserve(dataset.getPixSize().x * dataset.getPixSize().y);
+    // calculate locations
+    for (int i = 0; i < dataset.getPixSize().y; i++)
+    {
         for (int j = 0; j < dataset.getPixSize().x; j++)
         {
-            const glm::dvec2 bordPosNorth = dataset.getNorthWest() + (horzLineDir_north * horzStep_north * (double)j);
-            const glm::dvec2 bordPosSouth = dataset.getSouthWest() + (horzLineDir_south * horzStep_south * (double)j);
-
             // find intersection of two
-            const glm::dvec2 intersection =
-                calcIntersection(Line{bordPosNorth, bordPosSouth}, Line{bordPosWest, bordPosEast});
+            const glm::dvec2 intersection = calcIntersection(northLines[j], eastWestLines[i]);
 
             vertPositions.push_back(glm::dvec3{intersection.x, intersection.y,
                                                dataset.getElevationAtTexCoords(dataset.applyOffsetToTexCoords(
@@ -168,7 +180,8 @@ void TerrainChunk::loadLocation(TerrainDataset &dataset, std::vector<glm::dvec3>
 
 void TerrainChunk::loadInds(TerrainDataset &dataset, std::vector<uint32_t> &inds)
 {
-    uint32_t indexCounter = 0;
+    uint32_t indexCounter{0};
+    inds.reserve(dataset.getPixSize().x * dataset.getPixSize().y * 6);
 
     for (int i = 0; i < dataset.getPixSize().y; i++)
     {
@@ -287,7 +300,6 @@ void TerrainChunk::centerAroundTerrainOrigin(std::vector<glm::dvec3> &vertPositi
     {
         const glm::dvec3 vertECEF =
             star::terrain::util::distance::toECEF(vertPositions[i].x, vertPositions[i].y, vertPositions[i].z);
-
         const glm::dvec3 displacedECEF = vertECEF - worldCenterECEF;
         const glm::dvec3 result = worldCenterToENUTransformation * displacedECEF;
 
@@ -302,11 +314,10 @@ void TerrainChunk::loadGeomInfo(TerrainDataset &dataset, std::vector<star::Verte
     std::vector<glm::vec2> vertTextureCoords = std::vector<glm::vec2>();
 
     loadLocation(dataset, rawVertPositionCoords, vertTextureCoords, firstLine, lastLine);
-
     loadInds(dataset, inds);
-
     centerAroundTerrainOrigin(rawVertPositionCoords, dataset.getOffset());
 
+    verts.reserve(rawVertPositionCoords.size());
     for (size_t i = 0; i < rawVertPositionCoords.size(); i++)
     {
         verts.push_back(star::Vertex(rawVertPositionCoords.at(i), {}, {}, vertTextureCoords.at(i)));
@@ -457,9 +468,7 @@ float TerrainChunk::TerrainDataset::getElevationAtTexCoords(const glm::ivec2 &te
 void TerrainChunk::TerrainDataset::initTransforms(GDALDataset *dataset)
 {
     if (GDALGetGeoTransform(dataset, this->geoTransforms) != CPLE_None)
-    {
         STAR_THROW("Failed to obtain proper geotransform");
-    }
 }
 
 void TerrainChunk::TerrainDataset::initPixelCoords()

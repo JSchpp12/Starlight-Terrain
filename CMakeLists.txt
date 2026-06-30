@@ -16,6 +16,7 @@ endif()
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(TBB CONFIG REQUIRED)
+find_package(hwy CONFIG REQUIRED)
 find_package(starlight_common CONFIG REQUIRED)
 
 if(NOT TARGET starlight_common)
@@ -77,6 +78,7 @@ target_link_libraries(${PROJECT_NAME}
         starlight_common
         GDAL::GDAL
         TBB::tbb
+        hwy::hwy
     PRIVATE
 )
 
