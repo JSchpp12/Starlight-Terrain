@@ -22,9 +22,6 @@
 
 namespace star::terrain
 {
-
-namespace
-{
 /// Per-thread GDAL dataset holder. GDAL does not allow concurrent use of a
 /// single GDALDataset from multiple threads, so each TBB worker opens its own
 /// handle to the same height file. Closed in the destructor on the worker
@@ -49,7 +46,6 @@ struct ThreadLocalDataset
             GDALClose(ds);
     }
 };
-} // namespace
 
 TerrainObject::TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def,
                              star::ShaderResolver &shaderResolver)
@@ -63,6 +59,11 @@ TerrainObject::TerrainObject(star::core::device::DeviceContext &context, Terrain
 
 std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::DeviceContext &context)
 {
+    for (auto &material : m_meshMaterials)
+    {
+        static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
+    }
+
     const auto infoPath = getHeightInfoFilePath();
     auto [readResult, fileInfo] = ReadTerrainTextureInfo(infoPath.string());
 
@@ -139,9 +140,7 @@ std::vector<std::shared_ptr<star::StarMaterial>> TerrainObject::loadMaterials(co
         for (const auto &file : files)
         {
             if (file.extension() == ".ktx2")
-            {
                 found = &file;
-            }
         }
 
         if (found == nullptr)
