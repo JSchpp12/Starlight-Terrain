@@ -103,15 +103,13 @@ star::StarMesh TerrainChunk::getMesh(star::core::device::DeviceContext &context,
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     star::Handle vertBuffer = context.getManagerRenderResource().addRequest(
-        context.getDeviceID(), context.getSemaphoreManager().get(vertSemaphore)->semaphore,
-        std::make_unique<star::TransferRequest::VertInfo>(graphicsIndex, verts));
+        context.getDeviceID(), std::make_unique<star::TransferRequest::VertInfo>(graphicsIndex, verts));
 
     const auto indSemaphore =
         context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     star::Handle indBuffer = context.getManagerRenderResource().addRequest(
-        context.getDeviceID(), context.getSemaphoreManager().get(indSemaphore)->semaphore,
-        std::make_unique<star::TransferRequest::IndicesInfo>(graphicsIndex, inds));
+        context.getDeviceID(), std::make_unique<star::TransferRequest::IndicesInfo>(graphicsIndex, inds));
     return star::StarMesh{vertBuffer, indBuffer, verts, inds, myMaterial, false};
 }
 
