@@ -334,8 +334,21 @@ glm::dvec2 TerrainChunk::calcStep(const glm::dvec2 &startPoint, const glm::dvec2
 
 glm::dvec2 TerrainChunk::calcIntersection(const Line &lineA, const Line &lineB)
 {
-    const double calcX = (lineB.intercept - lineA.intercept) / (lineA.slope - lineB.slope);
-    return glm::dvec2{calcX, lineA.y(calcX)};
+    // formula handles vertical/horizontal edges without degeneracy.
+    const glm::dvec2 &p1 = lineA.pointA;
+    const glm::dvec2 &p2 = lineA.pointB;
+    const glm::dvec2 &p3 = lineB.pointA;
+    const glm::dvec2 &p4 = lineB.pointB;
+
+    const double denom = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+    assert(std::abs(denom) > 0.0 && "Attempted to find intersection of parallel lines");
+
+    const double px =
+        ((p1.x * p2.y - p1.y * p2.x) * (p3.x - p4.x) - (p1.x - p2.x) * (p3.x * p4.y - p3.y * p4.x)) / denom;
+    const double py =
+        ((p1.x * p2.y - p1.y * p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x * p4.y - p3.y * p4.x)) / denom;
+
+    return glm::dvec2{px, py};
 }
 
 TerrainChunk::TerrainDataset::~TerrainDataset()
@@ -479,6 +492,16 @@ void TerrainChunk::TerrainDataset::initPixelCoords()
     const auto crossA = glm::ivec2{std::abs(tSouthEast.x - tNorthWest.x), std::abs(tSouthEast.y - tNorthWest.y)};
     const auto crossB = glm::ivec2{std::abs(tSouthWest.x - tNorthEast.x), std::abs(tSouthWest.y - tNorthEast.y)};
     this->pixSize = glm::ivec2{std::floor((crossA.x + crossB.x) / 2), std::floor((crossA.y + crossB.y) / 2)};
+
+    // Partial edge chunks can be narrower/shorter than a single heightmap
+    // pixel. Rounding their corner pixel coordinates then collapses to the
+    // same value, yielding a zero-size dimension and a mesh with zero
+    // vertices. Clamp each dimension to a minimum of 2 so sub-pixel slivers
+    // still generate a valid minimal mesh and the pixSize - 1 divisions
+    // in loadLocation() stay safe.
+    constexpr int minPixDim = 2;
+    this->pixSize.x = std::max(this->pixSize.x, minPixDim);
+    this->pixSize.y = std::max(this->pixSize.y, minPixDim);
 
     this->pixOffset = tNorthWest;
     this->maxPixBounds = this->pixSize + this->pixOffset;

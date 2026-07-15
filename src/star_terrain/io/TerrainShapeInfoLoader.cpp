@@ -38,7 +38,7 @@ int TerrainShapeInfoLoader::operator()(const std::filesystem::path &filePath)
 
 CoverageInfo TerrainShapeInfoLoader::load(const std::string &filePath) const
 {
-    if (!star::file_helpers::FileExists(filePath))
+    if (!std::filesystem::exists(filePath))
     {
         std::string msg = "Shape file does not exist: " + filePath;
         STAR_THROW(msg);

@@ -1,10 +1,11 @@
 #pragma once
 
 #include <gdal_priv.h>
-#include <ogr_spatialref.h>
 #include <glm/glm.hpp>
 #include <memory>
+#include <ogr_spatialref.h>
 #include <string>
+
 
 #include "StarBuffers/Buffer.hpp"
 #include "StarMesh.hpp"
@@ -55,16 +56,15 @@ class TerrainChunk
   private:
     struct Line
     {
-        const double slope, intercept;
+        // A line is stored by its two endpoint positions (x = lat, y = lon).
+        // Storing the endpoints (instead of a slope/intercept representation
+        // lon = slope*lat + intercept) keeps axis-aligned chunk edges
+        // representable: east-west edges sit at a constant latitude, which
+        // would otherwise give an infinite slope and break intersection.
+        const glm::dvec2 pointA, pointB;
 
-        Line(const glm::dvec2 &pointA, const glm::dvec2 &pointB)
-            : slope((pointB.y - pointA.y) / (pointB.x - pointA.x)), intercept(pointA.y - (slope * pointA.x))
+        Line(const glm::dvec2 &a, const glm::dvec2 &b) : pointA(a), pointB(b)
         {
-        }
-
-        double y(const double &x) const
-        {
-            return ((this->slope * x) + this->intercept);
         }
     };
 

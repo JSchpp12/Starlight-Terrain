@@ -18,7 +18,7 @@ void from_json(const nlohmann::json &j, CoverageInfo &data)
 {
     try
     {
-        const auto swapped = j["center"].get<glm::dvec2>();
+        const glm::dvec2 swapped = j["center"];
         // JSON x = lon, y = lat -> internal center.x = lat, center.y = lon.
         data.center = glm::dvec2{swapped.y, swapped.x};
     }
