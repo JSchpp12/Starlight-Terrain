@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(starlight_terrain
     DESCRIPTION "Terrain library for Starlight"
     LANGUAGES CXX
-    VERSION 1.0.7
+    VERSION 1.0.8
 )
 
 option(STARLIGHT_TERRAIN_BUILD_SHARED "Build as shared library" OFF)

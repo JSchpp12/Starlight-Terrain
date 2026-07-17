@@ -20,34 +20,10 @@
 namespace star::terrain
 {
 
-static std::string FindMatchingTextureFile(const std::string &textureFileName)
-{
-    const std::filesystem::path *found = nullptr;
-
-    const auto textureDir = star::file_helpers::GetParentDirectory(textureFileName).value();
-    auto files =
-        star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(textureDir.string(), textureFileName);
-    for (const auto &file : files)
-    {
-        if (file.has_extension() && (file.extension() == ".png" || file.extension() == ".ktx2"))
-        {
-            found = &file;
-            break;
-        }
-    }
-
-    if (found == nullptr)
-    {
-        STAR_THROW("Unable to find matching texture file for terrain chunk");
-    }
-
-    return found->string();
-}
-
-TerrainChunk::TerrainChunk(const std::string &fullHeightFile, const std::string &nTextureFile,
+TerrainChunk::TerrainChunk(const std::string &fullHeightFile, 
                            const glm::dvec2 &northEast, const glm::dvec2 &southEast, const glm::dvec2 &southWest,
                            const glm::dvec2 &northWest, const glm::dvec3 &offset, const glm::dvec2 &center)
-    : textureFile(FindMatchingTextureFile(nTextureFile)), fullHeightFile(fullHeightFile), m_northEast(northEast),
+    : fullHeightFile(fullHeightFile), m_northEast(northEast),
       m_southEast(southEast), m_southWest(southWest), m_northWest(northWest), m_offset(offset), m_center(center)
 {
 }
@@ -111,11 +87,6 @@ star::StarMesh TerrainChunk::getMesh(star::core::device::DeviceContext &context,
     star::Handle indBuffer = context.getManagerRenderResource().addRequest(
         context.getDeviceID(), std::make_unique<star::TransferRequest::IndicesInfo>(graphicsIndex, inds));
     return star::StarMesh{vertBuffer, indBuffer, verts, inds, myMaterial, false};
-}
-
-std::string &TerrainChunk::getTextureFile()
-{
-    return this->textureFile;
 }
 
 void TerrainChunk::loadLocation(TerrainDataset &dataset, std::vector<glm::dvec3> &vertPositions,

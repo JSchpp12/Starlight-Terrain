@@ -16,8 +16,9 @@ void from_json(const nlohmann::json &j, ChunkInfo &d)
 {
     try
     {
-        d.cornerNE = glm::dvec2{std::stod(j["bounds"]["northEast"]["lat"].get<std::string>()),
-                                std::stod(j["bounds"]["northEast"]["lon"].get<std::string>())};
+        double lat = j["bounds"]["northEast"]["lat"];
+        double lon = j["bounds"]["northEast"]["lon"];
+        d.cornerNE = glm::dvec2{lat, lon};
     }
     catch (const std::exception &e)
     {
@@ -26,8 +27,9 @@ void from_json(const nlohmann::json &j, ChunkInfo &d)
 
     try
     {
-        d.cornerSE = glm::dvec2{std::stod(j["bounds"]["southEast"]["lat"].get<std::string>()),
-                                std::stod(j["bounds"]["southEast"]["lon"].get<std::string>())};
+        double lat = j["bounds"]["southEast"]["lat"];
+        double lon = j["bounds"]["southEast"]["lon"];
+        d.cornerSE = glm::dvec2{lat, lon};
     }
     catch (const std::exception &e)
     {
@@ -36,8 +38,9 @@ void from_json(const nlohmann::json &j, ChunkInfo &d)
 
     try
     {
-        d.cornerSW = glm::dvec2{std::stod(j["bounds"]["southWest"]["lat"].get<std::string>()),
-                                std::stod(j["bounds"]["southWest"]["lon"].get<std::string>())};
+        double lat = j["bounds"]["southWest"]["lat"];
+        double lon = j["bounds"]["southWest"]["lon"];
+        d.cornerSW = glm::dvec2{lat, lon};
     }
     catch (const std::exception &e)
     {
@@ -46,8 +49,9 @@ void from_json(const nlohmann::json &j, ChunkInfo &d)
 
     try
     {
-        d.cornerNW = glm::dvec2{std::stod(j["bounds"]["northWest"]["lat"].get<std::string>()),
-                                std::stod(j["bounds"]["northWest"]["lon"].get<std::string>())};
+        double lat = j["bounds"]["northWest"]["lat"];
+        double lon = j["bounds"]["northWest"]["lon"];
+        d.cornerNW = glm::dvec2{lat, lon};
     }
     catch (const std::exception &e)
     {
@@ -56,8 +60,9 @@ void from_json(const nlohmann::json &j, ChunkInfo &d)
 
     try
     {
-        d.center = glm::dvec2{std::stod(j["bounds"]["center"]["lat"].get<std::string>()),
-                              std::stod(j["bounds"]["center"]["lon"].get<std::string>())};
+        double lat = j["bounds"]["center"]["lat"];
+        double lon = j["bounds"]["center"]["lon"];
+        d.center = glm::dvec2{lat, lon};
     }
     catch (const std::exception &e)
     {

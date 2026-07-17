@@ -17,11 +17,12 @@ void from_json(const nlohmann::json &j, TextureDataInfo &data)
 {
     try
     {
-        data.fullHeightFilePath = j["full_terrain_file"];
+        std::vector<std::string> heightFiles = j["elevation_files"];
+        data.fullHeightFilePath = heightFiles[0];
     }
     catch (const std::exception &e)
     {
-        STAR_THROW_CAUSE("Failed to parse TextureDataInfo.full_terrain_file", e);
+        STAR_THROW_CAUSE("Failed to parse TextureDataInfo.elevation_files", e);
     }
 
     try

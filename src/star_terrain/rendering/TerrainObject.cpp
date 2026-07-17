@@ -80,7 +80,6 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
     bool setWorldCenter = false;
     for (size_t i = 0; i < fileInfo.chunks.size(); i++)
     {
-        const auto chunkTexturePath = terrainPath / fileInfo.chunks[i].textureFile;
         if (!setWorldCenter)
         {
             setWorldCenter = true;
@@ -89,7 +88,7 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
                                 .value();
         }
 
-        chunks.emplace_back(fullHeightFilePath.string(), chunkTexturePath.string(), fileInfo.chunks[i].cornerNE,
+        chunks.emplace_back(fullHeightFilePath.string(), fileInfo.chunks[i].cornerNE,
                             fileInfo.chunks[i].cornerSE, fileInfo.chunks[i].cornerSW, fileInfo.chunks[i].cornerNW,
                             worldCenter, fileInfo.chunks[i].center);
     }
@@ -127,6 +126,16 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
     return terrainMeshes;
 }
 
+std::optional<std::filesystem::path> CheckForCompressedTexture(const std::filesystem::path &terrainDir,
+                                                               std::string chunkPath)
+{
+    chunkPath += ".ktx2";
+    std::filesystem::path testPath = terrainDir / std::filesystem::path(chunkPath);
+    if (std::filesystem::exists(testPath))
+        return std::make_optional(testPath);
+    return std::nullopt;
+}
+
 std::vector<std::shared_ptr<star::StarMaterial>> TerrainObject::loadMaterials(const std::filesystem::path &terrainDir,
                                                                               const TextureDataInfo &fileInfo)
 {
@@ -134,16 +143,25 @@ std::vector<std::shared_ptr<star::StarMaterial>> TerrainObject::loadMaterials(co
 
     for (size_t i = 0; i < fileInfo.chunks.size(); i++)
     {
-        const std::filesystem::path *found = nullptr;
-        auto files = star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(terrainDir.string(),
-                                                                                        fileInfo.chunks[i].textureFile);
-        for (const auto &file : files)
+        std::optional<std::filesystem::path> found =
+            CheckForCompressedTexture(terrainDir, fileInfo.chunks[i].textureFile);
+
+        if (!found.has_value())
         {
-            if (file.extension() == ".ktx2")
-                found = &file;
+            // manually iterate and search for proper one
+            auto files = star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(
+                terrainDir.string(), fileInfo.chunks[i].textureFile);
+            for (const auto &file : files)
+            {
+                if (file.extension() == ".ktx2")
+                    found = file;
+            }
+
+            if (found.has_value())
+                break;
         }
 
-        if (found == nullptr)
+        if (!found.has_value())
         {
             std::ostringstream oss;
             oss << "Failed to find matching texture for file: " << fileInfo.chunks[i].textureFile << std::endl
@@ -151,7 +169,7 @@ std::vector<std::shared_ptr<star::StarMaterial>> TerrainObject::loadMaterials(co
             STAR_THROW(oss.str());
         }
 
-        materials[i] = std::make_shared<star::TextureMaterial>(found->string());
+        materials[i] = std::make_shared<star::TextureMaterial>(found.value().string());
     }
 
     return materials;

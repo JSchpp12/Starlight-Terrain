@@ -16,7 +16,7 @@ namespace star::terrain
 class TerrainChunk
 {
   public:
-    TerrainChunk(const std::string &fullHeightFile, const std::string &nTextureFile, const glm::dvec2 &northEast,
+    TerrainChunk(const std::string &fullHeightFile, const glm::dvec2 &northEast,
                  const glm::dvec2 &southEast, const glm::dvec2 &southWest, const glm::dvec2 &northWest,
                  const glm::dvec3 &offset, const glm::dvec2 &center);
 
@@ -24,8 +24,6 @@ class TerrainChunk
     void load(GDALDataset *sharedDataset);
 
     star::StarMesh getMesh(star::core::device::DeviceContext &context, std::shared_ptr<star::StarMaterial> myMaterial);
-
-    std::string &getTextureFile();
 
     star::StarBuffers::Buffer &getIndexBuffer()
     {
@@ -143,7 +141,7 @@ class TerrainChunk
     std::vector<uint32_t> inds;
     std::unique_ptr<star::StarBuffers::Buffer> indBuffer, vertBuffer;
     std::unique_ptr<star::StarMesh> mesh;
-    std::string textureFile, fullHeightFile;
+    std::string fullHeightFile;
     glm::dvec2 m_northEast, m_southEast, m_southWest, m_northWest, m_center;
     glm::dvec3 m_offset;
 
