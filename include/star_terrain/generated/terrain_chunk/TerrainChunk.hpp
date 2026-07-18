@@ -6,7 +6,6 @@
 #include <ogr_spatialref.h>
 #include <string>
 
-
 #include "StarBuffers/Buffer.hpp"
 #include "StarMesh.hpp"
 #include "device/StarDevice.hpp"
@@ -16,28 +15,14 @@ namespace star::terrain
 class TerrainChunk
 {
   public:
-    TerrainChunk(const std::string &fullHeightFile, const glm::dvec2 &northEast,
-                 const glm::dvec2 &southEast, const glm::dvec2 &southWest, const glm::dvec2 &northWest,
-                 const glm::dvec3 &offset, const glm::dvec2 &center);
+    TerrainChunk(const std::string &fullHeightFile, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
+                 const glm::dvec2 &southWest, const glm::dvec2 &northWest, const glm::dvec3 &offset,
+                 const glm::dvec2 &center);
 
     /// @brief Load meshes from the provided files
     void load(GDALDataset *sharedDataset);
 
     star::StarMesh getMesh(star::core::device::DeviceContext &context, std::shared_ptr<star::StarMaterial> myMaterial);
-
-    star::StarBuffers::Buffer &getIndexBuffer()
-    {
-        assert(this->indBuffer && "Index buffer has not been initialized. Make sure to call load() "
-                                  "first.");
-        return *this->indBuffer;
-    }
-
-    star::StarBuffers::Buffer &getVertexBuffer()
-    {
-        assert(this->vertBuffer && "Vertex buffer has not been initialized. Make sure to call load() "
-                                   "first.");
-        return *this->vertBuffer;
-    }
 
     [[nodiscard]] const std::string &getHeightFile() noexcept
     {
@@ -119,15 +104,13 @@ class TerrainChunk
         }
 
       private:
-        glm::ivec2 m_bufferSize{0, 0};
-        glm::dvec2 m_northEast, m_southEast, m_southWest, m_northWest, m_center;
         glm::dvec3 m_offset;
-        const int pixBorderSize = 2;
-
-        float *gdalBuffer = nullptr;
-        glm::ivec2 fullPixSize, maxPixBounds, pixOffset, pixSize;
+        glm::dvec2 m_northEast, m_southEast, m_southWest, m_northWest, m_center;
+        glm::ivec2 m_bufferSize, fullPixSize, maxPixBounds, pixOffset, pixSize;
         double geoTransforms[6];
-
+        const int pixBorderSize = 1;
+        float *gdalBuffer = nullptr;
+        
         void initTransforms(GDALDataset *dataset);
 
         void initBandSizes(GDALDataset *dataset);
@@ -139,7 +122,6 @@ class TerrainChunk
 
     std::vector<star::Vertex> verts;
     std::vector<uint32_t> inds;
-    std::unique_ptr<star::StarBuffers::Buffer> indBuffer, vertBuffer;
     std::unique_ptr<star::StarMesh> mesh;
     std::string fullHeightFile;
     glm::dvec2 m_northEast, m_southEast, m_southWest, m_northWest, m_center;

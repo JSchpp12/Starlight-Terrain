@@ -75,14 +75,8 @@ star::StarMesh TerrainChunk::getMesh(star::core::device::DeviceContext &context,
                                                   star::Queue_Type::Tgraphics)
             ->getParentQueueFamilyIndex();
 
-    const auto vertSemaphore =
-        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
-
     star::Handle vertBuffer = context.getManagerRenderResource().addRequest(
         context.getDeviceID(), std::make_unique<star::TransferRequest::VertInfo>(graphicsIndex, verts));
-
-    const auto indSemaphore =
-        context.getSemaphoreManager().submit(star::core::device::manager::SemaphoreRequest(false));
 
     star::Handle indBuffer = context.getManagerRenderResource().addRequest(
         context.getDeviceID(), std::make_unique<star::TransferRequest::IndicesInfo>(graphicsIndex, inds));
