@@ -20,11 +20,11 @@
 namespace star::terrain
 {
 
-TerrainChunk::TerrainChunk(const std::string &fullHeightFile, 
-                           const glm::dvec2 &northEast, const glm::dvec2 &southEast, const glm::dvec2 &southWest,
-                           const glm::dvec2 &northWest, const glm::dvec3 &offset, const glm::dvec2 &center)
-    : fullHeightFile(fullHeightFile), m_northEast(northEast),
-      m_southEast(southEast), m_southWest(southWest), m_northWest(northWest), m_offset(offset), m_center(center)
+TerrainChunk::TerrainChunk(const std::string &fullHeightFile, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
+                           const glm::dvec2 &southWest, const glm::dvec2 &northWest, const glm::dvec3 &offset,
+                           const glm::dvec2 &center)
+    : fullHeightFile(fullHeightFile), m_northEast(northEast), m_southEast(southEast), m_southWest(southWest),
+      m_northWest(northWest), m_offset(offset), m_center(center)
 {
 }
 
@@ -237,9 +237,9 @@ void TerrainChunk::calculateNormals(std::vector<star::Vertex> &verts, std::vecto
     // calculate normals
     for (int i = 0; i < inds.size(); i += 3)
     {
-        auto &vert1 = verts.at(inds.at(i));
-        auto &vert2 = verts.at(inds.at(i + 1));
-        auto &vert3 = verts.at(inds.at(i + 2));
+        auto &vert1 = verts[inds[i]];
+        auto &vert2 = verts[inds[i + 1]];
+        auto &vert3 = verts[inds[i + 2]];
 
         glm::vec3 edge1 = vert2.pos - vert1.pos;
         glm::vec3 edge2 = vert3.pos - vert1.pos;
@@ -332,17 +332,14 @@ TerrainChunk::TerrainDataset::~TerrainDataset()
     }
 }
 
-TerrainChunk::TerrainDataset::TerrainDataset(GDALDataset *dataset, const glm::dvec2 &northEast,
-                                             const glm::dvec2 &southEast, const glm::dvec2 &southWest,
-                                             const glm::dvec2 &northWest, const glm::dvec2 &center,
-                                             const glm::dvec3 &offset)
-    : m_northEast(northEast), m_southEast(southEast), m_southWest(southWest), m_northWest(northWest), m_center(center),
-      m_offset(offset)
+TerrainChunk::TerrainDataset::TerrainDataset(GDALDataset *dataset, glm::dvec2 northEast, glm::dvec2 southEast,
+                                             glm::dvec2 southWest, glm::dvec2 northWest, glm::dvec2 center,
+                                             glm::dvec3 offset)
+    : m_northEast(std::move(northEast)), m_southEast(std::move(southEast)), m_southWest(std::move(southWest)),
+      m_northWest(std::move(northWest)), m_center(std::move(center)), m_offset(std::move(offset))
 {
     if (dataset == NULL)
-    {
         STAR_THROW("Failed to create dataset");
-    }
 
     initTransforms(dataset);
     initPixelCoords();
@@ -500,8 +497,6 @@ void TerrainChunk::TerrainDataset::initGDALBuffer(GDALDataset *dataset)
     CPLErr error = band->RasterIO(GF_Read, xOff, yOff, xSize, ySize, this->gdalBuffer, xSize, ySize, GDT_Float32, 0, 0);
 
     if (error != CE_None)
-    {
         STAR_THROW("Failed to read raster band");
-    }
 }
 } // namespace star::terrain
