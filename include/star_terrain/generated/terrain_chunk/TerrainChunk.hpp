@@ -54,18 +54,12 @@ class TerrainChunk
     class TerrainDataset
     {
       public:
-        TerrainDataset(GDALDataset *dataset, const glm::dvec2 &northEast, const glm::dvec2 &southEast,
-                       const glm::dvec2 &southWest, const glm::dvec2 &northWest, const glm::dvec2 &center,
-                       const glm::dvec3 &offset);
-
-        // no copy
+        TerrainDataset(GDALDataset *dataset, glm::dvec2 northEast, glm::dvec2 southEast, glm::dvec2 southWest,
+                       glm::dvec2 northWest, glm::dvec2 center, glm::dvec3 offset);
         TerrainDataset(const TerrainDataset &) = delete;
         TerrainDataset &operator=(const TerrainDataset &) = delete;
-
         TerrainDataset(TerrainDataset &&) noexcept = default;
-        // no move
         TerrainDataset &operator=(TerrainDataset &&) noexcept = delete;
-
         ~TerrainDataset();
 
         float getElevationAtTexCoords(const glm::ivec2 &texCoords) const;
@@ -110,7 +104,7 @@ class TerrainChunk
         double geoTransforms[6];
         const int pixBorderSize = 1;
         float *gdalBuffer = nullptr;
-        
+
         void initTransforms(GDALDataset *dataset);
 
         void initBandSizes(GDALDataset *dataset);
