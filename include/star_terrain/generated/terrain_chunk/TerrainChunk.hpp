@@ -9,6 +9,7 @@
 #include "StarBuffers/Buffer.hpp"
 #include "StarMesh.hpp"
 #include "device/StarDevice.hpp"
+#include "star_terrain/rendering/TerrainVertex.hpp"
 
 namespace star::terrain
 {
@@ -114,7 +115,7 @@ class TerrainChunk
         void initGDALBuffer(GDALDataset *dataset);
     };
 
-    std::vector<star::Vertex> verts;
+    std::vector<rendering::TerrainVertex> verts;
     std::vector<uint32_t> inds;
     std::unique_ptr<star::StarMesh> mesh;
     std::string fullHeightFile;
@@ -136,14 +137,14 @@ class TerrainChunk
 
     static void loadInds(TerrainDataset &dataset, std::vector<uint32_t> &inds);
 
-    static void calculateNormals(std::vector<star::Vertex> &verts, std::vector<uint32_t> &inds);
+    static void calculateNormals(std::vector<rendering::TerrainVertex> &verts, std::vector<uint32_t> &inds);
 
     /// @brief Update all vert locations to be centered around the terrain center
     /// @param terrainCenter center of the terrain
     /// @param verts all of the vertices to update
     void centerAroundTerrainOrigin(std::vector<glm::dvec3> &vertPositions, const glm::dvec3 &worldCenterLatLon) const;
 
-    void loadGeomInfo(TerrainDataset &dataset, std::vector<star::Vertex> &verts, std::vector<uint32_t> &inds,
+    void loadGeomInfo(TerrainDataset &dataset, std::vector<rendering::TerrainVertex> &verts, std::vector<uint32_t> &inds,
                       std::vector<glm::dvec3> &firstLine, std::vector<glm::dvec3> &lastLine) const;
 
     static glm::dvec2 calcStep(const glm::dvec2 &startPoint, const glm::dvec2 &horizontalDirection,

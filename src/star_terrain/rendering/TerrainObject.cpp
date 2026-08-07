@@ -3,6 +3,7 @@
 #include "star_terrain/file_data/texture_data/Reader.hpp"
 #include "star_terrain/generated/terrain_chunk/TerrainChunk.hpp"
 #include "star_terrain/io/TerrainShapeInfoLoader.hpp"
+#include "star_terrain/rendering/TerrainVertexDescription.hpp"
 
 #include <starlight/common/helpers/FileHelpers.hpp>
 #include <starlight/common/materials/TextureMaterial.hpp>
@@ -57,6 +58,15 @@ TerrainObject::TerrainObject(star::core::device::DeviceContext &context, Terrain
     m_fragmentShaderHandle = shaderResolver.resolve(star::Shader_Stage::fragment);
 }
 
+star::PipelineProvider TerrainObject::getPipelineProvider(vk::PipelineLayout pipelineLayout)
+{
+    return star::PipelineProvider(
+        {m_vertexShaderHandle, m_fragmentShaderHandle}, pipelineLayout,
+        star::GraphicsOverrides{.vertexInput = star::VertexInputState{
+                                    .bindings = star::terrain::rendering::getVertexBindingDescription(),
+                                    .attributes = star::terrain::rendering::getVertexInputAttributeDescription()}});
+}
+
 std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::DeviceContext &context)
 {
     for (auto &material : m_meshMaterials)
@@ -88,17 +98,13 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
                                 .value();
         }
 
-        chunks.emplace_back(fullHeightFilePath.string(), fileInfo.chunks[i].cornerNE,
-                            fileInfo.chunks[i].cornerSE, fileInfo.chunks[i].cornerSW, fileInfo.chunks[i].cornerNW,
-                            worldCenter, fileInfo.chunks[i].center);
+        chunks.emplace_back(fullHeightFilePath.string(), fileInfo.chunks[i].cornerNE, fileInfo.chunks[i].cornerSE,
+                            fileInfo.chunks[i].cornerSW, fileInfo.chunks[i].cornerNW, worldCenter,
+                            fileInfo.chunks[i].center);
     }
 
     star::core::logging::info("Launching load tasks");
 
-    // GDAL does not allow concurrent access to a single GDALDataset, so each
-    // TBB worker opens its own handle to the same height file via
-    // enumerable_thread_specific (one dataset per thread, lazily created and
-    // destroyed on the thread that owns it).
     tbb::enumerable_thread_specific<std::unique_ptr<ThreadLocalDataset>> tls;
     tbb::parallel_for(tbb::blocked_range<size_t>(0, chunks.size()), [&](const tbb::blocked_range<size_t> &r) {
         auto &local = tls.local();
@@ -139,7 +145,8 @@ std::optional<std::filesystem::path> CheckForCompressedTexture(const std::filesy
 std::vector<std::shared_ptr<star::StarMaterial>> TerrainObject::loadMaterials(const std::filesystem::path &terrainDir,
                                                                               const TextureDataInfo &fileInfo)
 {
-    std::vector<std::shared_ptr<star::StarMaterial>> materials(fileInfo.chunks.size());
+    std::vector<std::shared_ptr<star::StarMaterial>> materials;
+    materials.reserve(fileInfo.chunks.size());
 
     for (size_t i = 0; i < fileInfo.chunks.size(); i++)
     {
@@ -169,7 +176,7 @@ std::vector<std::shared_ptr<star::StarMaterial>> TerrainObject::loadMaterials(co
             STAR_THROW(oss.str());
         }
 
-        materials[i] = std::make_shared<star::TextureMaterial>(found.value().string());
+        materials.push_back(std::make_shared<star::TextureMaterial>(found.value().string()));
     }
 
     return materials;

@@ -31,6 +31,9 @@ class TerrainObject : public star::StarObject
         return m_def.renderType;
     }
 
+
+    virtual star::PipelineProvider getPipelineProvider(vk::PipelineLayout pipelineLayout) override; 
+    
   protected:
     std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
 
