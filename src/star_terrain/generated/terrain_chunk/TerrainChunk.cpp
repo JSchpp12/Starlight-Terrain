@@ -7,10 +7,13 @@
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
 #include "Vertex.hpp"
+#include "star_terrain/rendering/TerrainVertex.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/transform.hpp>
+
+#include <limits>
 
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
@@ -76,11 +79,22 @@ star::StarMesh TerrainChunk::getMesh(star::core::device::DeviceContext &context,
             ->getParentQueueFamilyIndex();
 
     star::Handle vertBuffer = context.getManagerRenderResource().addRequest(
-        context.getDeviceID(), std::make_unique<star::TransferRequest::VertInfo>(graphicsIndex, verts));
+        context.getDeviceID(),
+        std::make_unique<star::TransferRequest::VertInfo<rendering::TerrainVertex>>(graphicsIndex, verts));
 
     star::Handle indBuffer = context.getManagerRenderResource().addRequest(
         context.getDeviceID(), std::make_unique<star::TransferRequest::IndicesInfo>(graphicsIndex, inds));
-    return star::StarMesh{vertBuffer, indBuffer, verts, inds, myMaterial, false};
+
+    glm::vec3 bbMin{std::numeric_limits<float>::max()},
+        bbMax{std::numeric_limits<float>::lowest()};
+    for (const auto &v : verts)
+    {
+        bbMin = glm::min(bbMin, v.pos);
+        bbMax = glm::max(bbMax, v.pos);
+    }
+
+    return star::StarMesh{vertBuffer, indBuffer, static_cast<uint32_t>(verts.size()),
+                          static_cast<uint32_t>(inds.size()), myMaterial, bbMin, bbMax, false};
 }
 
 void TerrainChunk::loadLocation(TerrainDataset &dataset, std::vector<glm::dvec3> &vertPositions,
@@ -232,7 +246,7 @@ void TerrainChunk::loadInds(TerrainDataset &dataset, std::vector<uint32_t> &inds
     }
 }
 
-void TerrainChunk::calculateNormals(std::vector<star::Vertex> &verts, std::vector<uint32_t> &inds)
+void TerrainChunk::calculateNormals(std::vector<rendering::TerrainVertex> &verts, std::vector<uint32_t> &inds)
 {
     // calculate normals
     for (int i = 0; i < inds.size(); i += 3)
@@ -270,7 +284,7 @@ void TerrainChunk::centerAroundTerrainOrigin(std::vector<glm::dvec3> &vertPositi
     }
 }
 
-void TerrainChunk::loadGeomInfo(TerrainDataset &dataset, std::vector<star::Vertex> &verts, std::vector<uint32_t> &inds,
+void TerrainChunk::loadGeomInfo(TerrainDataset &dataset, std::vector<rendering::TerrainVertex> &verts, std::vector<uint32_t> &inds,
                                 std::vector<glm::dvec3> &firstLine, std::vector<glm::dvec3> &lastLine) const
 {
     std::vector<glm::dvec3> rawVertPositionCoords = std::vector<glm::dvec3>();
@@ -283,7 +297,8 @@ void TerrainChunk::loadGeomInfo(TerrainDataset &dataset, std::vector<star::Verte
     verts.reserve(rawVertPositionCoords.size());
     for (size_t i = 0; i < rawVertPositionCoords.size(); i++)
     {
-        verts.push_back(star::Vertex(rawVertPositionCoords.at(i), {}, {}, vertTextureCoords.at(i)));
+        verts.push_back(rendering::TerrainVertex{glm::vec3{rawVertPositionCoords.at(i)}, glm::vec3{0.0f},
+                                                 vertTextureCoords.at(i)});
     }
 
     calculateNormals(verts, inds);
