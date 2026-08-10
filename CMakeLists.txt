@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(starlight_terrain
     DESCRIPTION "Terrain library for Starlight"
     LANGUAGES CXX
-    VERSION 1.0.12
+    VERSION 1.0.13
 )
 
 option(STARLIGHT_TERRAIN_BUILD_SHARED "Build as shared library" OFF)
@@ -125,3 +125,53 @@ install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/starlight_terrainConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/starlight_terrain
 )
+
+# Bundle PROJ (and GDAL) runtime data so coordinate transforms work from a
+# bare tar extract with no install step and no PROJ_LIB env var.
+# libproj.so is installed to ${CMAKE_INSTALL_LIBDIR} by the consuming app
+# (via RUNTIME_DEPENDENCIES); PROJ resolves its data dir relative to the
+# library as <libdir>/../share/proj, so installing proj.db to
+# ${CMAKE_INSTALL_DATADIR}/proj (share/proj) makes it auto-discovered.
+set(_STARLIGHT_TERRAIN_PROJ_CANDIDATES
+    "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/proj"
+    "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/proj"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/share/proj"
+    "${CMAKE_SOURCE_DIR}/extern/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/share/proj"
+)
+set(_STARLIGHT_TERRAIN_PROJ_DATA_DIR "")
+foreach(_c ${_STARLIGHT_TERRAIN_PROJ_CANDIDATES})
+    if(EXISTS "${_c}/proj.db")
+        set(_STARLIGHT_TERRAIN_PROJ_DATA_DIR "${_c}")
+        break()
+    endif()
+endforeach()
+if(_STARLIGHT_TERRAIN_PROJ_DATA_DIR)
+    install(DIRECTORY "${_STARLIGHT_TERRAIN_PROJ_DATA_DIR}/"
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/proj"
+            FILES_MATCHING
+                PATTERN "proj.db"
+                PATTERN "proj.ini"
+                PATTERN "*.json"
+                PATTERN "*.tif"
+                PATTERN "*.lst")
+    message(STATUS "Bundling PROJ data: ${_STARLIGHT_TERRAIN_PROJ_DATA_DIR} -> ${CMAKE_INSTALL_DATADIR}/proj")
+else()
+    message(WARNING "PROJ data (proj.db) not found under the vcpkg installed tree; "
+                    "runtime coordinate transforms (e.g. EPSG:4326<->3857) will fail. "
+                    "Ship proj.db and set PROJ_LIB on the target, or fix VCPKG_INSTALLED_DIR.")
+endif()
+
+# GDAL data (optional; some drivers need share/gdal).
+set(_STARLIGHT_TERRAIN_GDAL_CANDIDATES
+    "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/gdal"
+    "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/gdal"
+    "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/share/gdal"
+    "${CMAKE_SOURCE_DIR}/extern/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/share/gdal"
+)
+foreach(_c ${_STARLIGHT_TERRAIN_GDAL_CANDIDATES})
+    if(IS_DIRECTORY "${_c}")
+        install(DIRECTORY "${_c}/" DESTINATION "${CMAKE_INSTALL_DATADIR}/gdal")
+        message(STATUS "Bundling GDAL data: ${_c} -> ${CMAKE_INSTALL_DATADIR}/gdal")
+        break()
+    endif()
+endforeach()

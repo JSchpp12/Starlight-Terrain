@@ -1,12 +1,14 @@
 #pragma once
 
 #include <gdal_priv.h>
-#include <ogr_spatialref.h>
 #include <glm/glm.hpp>
+#include <ogr_spatialref.h>
+
 
 #include <memory>
 
-namespace star::terrain{
+namespace star::terrain
+{
 class TerrainTransform
 {
   public:
@@ -20,6 +22,12 @@ class TerrainTransform
     /// transform returns (lon, lat) unchanged. Returns NaN on failure.
     glm::dvec2 toRasterXY(double lat, double lon) const noexcept;
 
+    /// True when this transform holds no inner OGRCoordinateTransformation
+    bool isNoOp() const noexcept
+    {
+        return m_ct == nullptr;
+    }
+
     ~TerrainTransform();
 
     TerrainTransform(const TerrainTransform &) = delete;
@@ -32,4 +40,4 @@ class TerrainTransform
 
     OGRCoordinateTransformation *m_ct = nullptr;
 };
-}
+} // namespace star::terrain

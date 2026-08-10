@@ -34,7 +34,7 @@ class TerrainChunk
 
     static double GetCenterHeightFromGDAL(const std::string &geoTiff);
 
-    static std::optional<double> GetHeightAtLocationFromGDAL(const std::string &path, double latDeg, double lonDeg);
+    static double GetHeightAtLocationFromGDAL(const std::string &path, double latDeg, double lonDeg);
 
     std::vector<glm::dvec3> lastLine;
     std::vector<glm::dvec3> firstLine;

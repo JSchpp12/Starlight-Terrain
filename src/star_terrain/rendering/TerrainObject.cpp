@@ -87,24 +87,24 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
     glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
 
     const auto fullHeightFilePath = terrainPath / std::filesystem::path(fileInfo.fullHeightFilePath);
+
+    if (!std::filesystem::exists(fullHeightFilePath))
+    {
+        std::ostringstream oss;
+        oss << "Elevation file does not exist: " << fullHeightFilePath.string()
+            << ". The terrain directory is expected to contain the height raster named in "
+            << "height_info.json (fullHeightFilePath = '" << fileInfo.fullHeightFilePath << "').";
+        STAR_THROW(oss.str());
+    }
+
     bool setWorldCenter = false;
     for (size_t i = 0; i < fileInfo.chunks.size(); i++)
     {
         if (!setWorldCenter)
         {
             setWorldCenter = true;
-            auto centerHeight = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(),
-                                                                            shapeInfo.center.x, shapeInfo.center.y);
-            if (!centerHeight)
-            {
-                std::ostringstream oss;
-                oss << "Failed to read world-center elevation from '" << fullHeightFilePath.string()
-                    << "' at (lat=" << shapeInfo.center.x << ", lon=" << shapeInfo.center.y << "). "
-                    << "Verify the height file exists, is not rotated, and that its coverage contains "
-                    << "the Shape.json center point.";
-                STAR_THROW(oss.str());
-            }
-            worldCenter.z = *centerHeight;
+            worldCenter.z = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(), shapeInfo.center.x,
+                                                                      shapeInfo.center.y);
         }
 
         chunks.emplace_back(fullHeightFilePath.string(), fileInfo.chunks[i].cornerNE, fileInfo.chunks[i].cornerSE,
