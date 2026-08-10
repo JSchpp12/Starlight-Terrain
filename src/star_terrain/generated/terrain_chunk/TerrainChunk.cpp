@@ -1,24 +1,20 @@
 #include "star_terrain/generated/terrain_chunk/TerrainChunk.hpp"
 
-#include "ConfigFile.hpp"
-#include "FileHelpers.hpp"
 #include "ManagerRenderResource.hpp"
-#include "TextureMaterial.hpp"
 #include "TransferRequest_IndicesInfo.hpp"
 #include "TransferRequest_VertInfo.hpp"
-#include "Vertex.hpp"
+#include "star_terrain/generated/terrain_chunk/TerrainTransform.hpp"
 #include "star_terrain/rendering/TerrainVertex.hpp"
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/transform.hpp>
-
-#include <limits>
+#include "star_terrain/util/Distance.hpp"
 
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 
-#include <star_terrain/util/Distance.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <cmath>
+#include <limits>
 
 namespace star::terrain
 {
@@ -85,16 +81,21 @@ star::StarMesh TerrainChunk::getMesh(star::core::device::DeviceContext &context,
     star::Handle indBuffer = context.getManagerRenderResource().addRequest(
         context.getDeviceID(), std::make_unique<star::TransferRequest::IndicesInfo>(graphicsIndex, inds));
 
-    glm::vec3 bbMin{std::numeric_limits<float>::max()},
-        bbMax{std::numeric_limits<float>::lowest()};
+    glm::vec3 bbMin{std::numeric_limits<float>::max()}, bbMax{std::numeric_limits<float>::lowest()};
     for (const auto &v : verts)
     {
         bbMin = glm::min(bbMin, v.pos);
         bbMax = glm::max(bbMax, v.pos);
     }
 
-    return star::StarMesh{vertBuffer, indBuffer, static_cast<uint32_t>(verts.size()),
-                          static_cast<uint32_t>(inds.size()), myMaterial, bbMin, bbMax, false};
+    return star::StarMesh{vertBuffer,
+                          indBuffer,
+                          static_cast<uint32_t>(verts.size()),
+                          static_cast<uint32_t>(inds.size()),
+                          myMaterial,
+                          bbMin,
+                          bbMax,
+                          false};
 }
 
 void TerrainChunk::loadLocation(TerrainDataset &dataset, std::vector<glm::dvec3> &vertPositions,
@@ -284,8 +285,9 @@ void TerrainChunk::centerAroundTerrainOrigin(std::vector<glm::dvec3> &vertPositi
     }
 }
 
-void TerrainChunk::loadGeomInfo(TerrainDataset &dataset, std::vector<rendering::TerrainVertex> &verts, std::vector<uint32_t> &inds,
-                                std::vector<glm::dvec3> &firstLine, std::vector<glm::dvec3> &lastLine) const
+void TerrainChunk::loadGeomInfo(TerrainDataset &dataset, std::vector<rendering::TerrainVertex> &verts,
+                                std::vector<uint32_t> &inds, std::vector<glm::dvec3> &firstLine,
+                                std::vector<glm::dvec3> &lastLine) const
 {
     std::vector<glm::dvec3> rawVertPositionCoords = std::vector<glm::dvec3>();
     std::vector<glm::vec2> vertTextureCoords = std::vector<glm::vec2>();
@@ -297,8 +299,8 @@ void TerrainChunk::loadGeomInfo(TerrainDataset &dataset, std::vector<rendering::
     verts.reserve(rawVertPositionCoords.size());
     for (size_t i = 0; i < rawVertPositionCoords.size(); i++)
     {
-        verts.push_back(rendering::TerrainVertex{glm::vec3{rawVertPositionCoords.at(i)}, glm::vec3{0.0f},
-                                                 vertTextureCoords.at(i)});
+        verts.push_back(
+            rendering::TerrainVertex{glm::vec3{rawVertPositionCoords.at(i)}, glm::vec3{0.0f}, vertTextureCoords.at(i)});
     }
 
     calculateNormals(verts, inds);
@@ -340,6 +342,8 @@ TerrainChunk::TerrainDataset::~TerrainDataset()
             CPLFree(this->gdalBuffer);
             this->gdalBuffer = nullptr;
         }
+        // m_latLonToRaster is a std::unique_ptr<TerrainTransform>; its
+        // destructor releases the underlying OGRCoordinateTransformation.
     }
     catch (const std::exception &ex)
     {
@@ -395,13 +399,19 @@ std::optional<double> TerrainChunk::GetHeightAtLocationFromGDAL(const std::strin
     const int nx = band->GetXSize();
     const int ny = band->GetYSize();
 
-    // Convert georef (lon, lat) -> pixel (x, y)
-    // Note: gt[5] is typically negative; that's normal.
-    const double px = (lonDeg - gt[0]) / gt[1];
-    const double py = (latDeg - gt[3]) / gt[5];
+    // The height raster may be referenced in projected coordinates (e.g.
+    // EPSG:3857, metres) rather than geographic degrees. Reproject the
+    // requested (lat, lon) into the raster's geotransform axes so the pixel
+    // math is correct regardless of CRS. For geographic rasters the transform
+    // is a no-op and toRasterXY() returns (lon, lat) unchanged.
+    std::unique_ptr<TerrainTransform> transform = TerrainTransform::create(ds);
 
-    // Clamp or early-exit if outside
-    if (px < 0 || py < 0 || px >= nx || py >= ny)
+    const glm::dvec2 rasterXY = transform->toRasterXY(latDeg, lonDeg);
+    const double px = (rasterXY.x - gt[0]) / gt[1];
+    const double py = (rasterXY.y - gt[3]) / gt[5];
+
+    // Reprojection failure (e.g. point outside the CRS domain) or out-of-raster.
+    if (std::isnan(px) || std::isnan(py) || px < 0 || py < 0 || px >= nx || py >= ny)
     {
         GDALClose(ds);
         return std::nullopt;
@@ -435,8 +445,18 @@ std::optional<double> TerrainChunk::GetHeightAtLocationFromGDAL(const std::strin
 
 glm::ivec2 TerrainChunk::TerrainDataset::getTexCoordsFromLatLon(const glm::dvec2 &latLon) const
 {
-    return glm::ivec2{static_cast<int>(std::round((latLon.y - geoTransforms[0]) / geoTransforms[1])),
-                      static_cast<int>(std::round((latLon.x - geoTransforms[3]) / geoTransforms[5]))};
+    // latLon.x = lat, latLon.y = lon (degrees). Reproject into the raster's
+    // geotransform axes (easting/northing for projected rasters) so the pixel
+    // math is correct regardless of the height file's CRS. For geographic
+    // rasters the transform is a no-op and this reduces to the legacy math.
+    const glm::dvec2 rasterXY = this->m_latLonToRaster->toRasterXY(latLon.x, latLon.y);
+
+    if (std::isnan(rasterXY.x) || std::isnan(rasterXY.y))
+        STAR_THROW("Failed to reproject chunk corner (lat=" + std::to_string(latLon.x) +
+                   ", lon=" + std::to_string(latLon.y) + ") into the height raster's CRS");
+
+    return glm::ivec2{static_cast<int>(std::round((rasterXY.x - geoTransforms[0]) / geoTransforms[1])),
+                      static_cast<int>(std::round((rasterXY.y - geoTransforms[3]) / geoTransforms[5]))};
 }
 
 glm::ivec2 TerrainChunk::TerrainDataset::applyOffsetToTexCoords(const glm::ivec2 &texCoords) const
@@ -457,6 +477,11 @@ void TerrainChunk::TerrainDataset::initTransforms(GDALDataset *dataset)
 {
     if (GDALGetGeoTransform(dataset, this->geoTransforms) != CPLE_None)
         STAR_THROW("Failed to obtain proper geotransform");
+
+    // Build a 4326 -> raster CRS transform for projected height files (e.g.
+    // EPSG:3857). A no-op transform is built for geographic/degree rasters;
+    // getTexCoordsFromLatLon then falls back to the legacy degree math.
+    this->m_latLonToRaster = TerrainTransform::create(dataset);
 }
 
 void TerrainChunk::TerrainDataset::initPixelCoords()

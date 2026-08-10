@@ -13,6 +13,8 @@
 
 namespace star::terrain
 {
+class TerrainTransform;
+
 class TerrainChunk
 {
   public:
@@ -105,6 +107,10 @@ class TerrainChunk
         double geoTransforms[6];
         const int pixBorderSize = 1;
         float *gdalBuffer = nullptr;
+        // Optional 4326 -> raster CRS transform. Holds a no-op transform for
+        // geographic/degree rasters, in which case getTexCoordsFromLatLon uses
+        // legacy math.
+        std::unique_ptr<TerrainTransform> m_latLonToRaster;
 
         void initTransforms(GDALDataset *dataset);
 
@@ -144,8 +150,9 @@ class TerrainChunk
     /// @param verts all of the vertices to update
     void centerAroundTerrainOrigin(std::vector<glm::dvec3> &vertPositions, const glm::dvec3 &worldCenterLatLon) const;
 
-    void loadGeomInfo(TerrainDataset &dataset, std::vector<rendering::TerrainVertex> &verts, std::vector<uint32_t> &inds,
-                      std::vector<glm::dvec3> &firstLine, std::vector<glm::dvec3> &lastLine) const;
+    void loadGeomInfo(TerrainDataset &dataset, std::vector<rendering::TerrainVertex> &verts,
+                      std::vector<uint32_t> &inds, std::vector<glm::dvec3> &firstLine,
+                      std::vector<glm::dvec3> &lastLine) const;
 
     static glm::dvec2 calcStep(const glm::dvec2 &startPoint, const glm::dvec2 &horizontalDirection,
                                const double &horizontalStepSize, const glm::dvec2 &verticalDirection,

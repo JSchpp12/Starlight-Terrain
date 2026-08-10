@@ -93,9 +93,18 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
         if (!setWorldCenter)
         {
             setWorldCenter = true;
-            worldCenter.z = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(), shapeInfo.center.x,
-                                                                      shapeInfo.center.y)
-                                .value();
+            auto centerHeight = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(),
+                                                                            shapeInfo.center.x, shapeInfo.center.y);
+            if (!centerHeight)
+            {
+                std::ostringstream oss;
+                oss << "Failed to read world-center elevation from '" << fullHeightFilePath.string()
+                    << "' at (lat=" << shapeInfo.center.x << ", lon=" << shapeInfo.center.y << "). "
+                    << "Verify the height file exists, is not rotated, and that its coverage contains "
+                    << "the Shape.json center point.";
+                STAR_THROW(oss.str());
+            }
+            worldCenter.z = *centerHeight;
         }
 
         chunks.emplace_back(fullHeightFilePath.string(), fileInfo.chunks[i].cornerNE, fileInfo.chunks[i].cornerSE,
