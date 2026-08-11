@@ -34,6 +34,8 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainRenderingType.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObjectDefinition.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObject.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainShadowRenderPhase.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/FromTerrainDirLoader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainVertexDescription.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/layout/TerrainGrid.hpp
@@ -53,6 +55,8 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainChunk.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainTransform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainObject.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhase.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhaseProvider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/FromTerrainDirLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainVertexDescription.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/layout/TerrainGrid.cpp
@@ -68,7 +72,19 @@ add_library(${PROJECT_NAME} ${LIBTYPE}
     ${${PROJECT_NAME}_SOURCES}
 )
 
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
+if(TARGET starlight AND STAR_VULKAN_PCH_HEADER)
+    target_precompile_headers(${PROJECT_NAME} REUSE_FROM starlight)
+endif()
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
+
+if (MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE
+        /bigobj
+        /MP
+        /EHsc
+        /Zc:__cplusplus
+    )
+endif()
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC
@@ -161,3 +177,4 @@ else()
                     "runtime coordinate transforms (e.g. EPSG:4326<->3857) will fail. "
                     "Ship proj.db and set PROJ_LIB on the target, or fix VCPKG_INSTALLED_DIR.")
 endif()
+
