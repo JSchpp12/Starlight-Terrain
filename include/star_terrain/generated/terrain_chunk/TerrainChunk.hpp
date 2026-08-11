@@ -1,15 +1,18 @@
 #pragma once
 
-#include <gdal_priv.h>
+#include "star_terrain/rendering/TerrainVertex.hpp"
+
 #include <glm/glm.hpp>
 #include <memory>
-#include <ogr_spatialref.h>
+#include <starlight/virtual/StarMesh.hpp>
 #include <string>
 
-#include "StarBuffers/Buffer.hpp"
-#include "StarMesh.hpp"
-#include "device/StarDevice.hpp"
-#include "star_terrain/rendering/TerrainVertex.hpp"
+namespace star::core::device
+{
+class DeviceContext;
+}
+
+class GDALDataset;
 
 namespace star::terrain
 {

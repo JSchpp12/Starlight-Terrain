@@ -7,14 +7,13 @@
 #include "star_terrain/rendering/TerrainVertex.hpp"
 #include "star_terrain/util/Distance.hpp"
 
-#include <starlight/core/Exceptions.hpp>
-#include <starlight/core/helper/queue/QueueHelpers.hpp>
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtc/matrix_transform.hpp>
-
 #include <cmath>
+#include <gdal_priv.h>
 #include <limits>
+#include <ogr_spatialref.h>
+#include <starlight/core/Exceptions.hpp>
+#include <starlight/core/device/DeviceContext.hpp>
+#include <starlight/core/helper/queue/QueueHelpers.hpp>
 
 namespace star::terrain
 {
@@ -389,9 +388,10 @@ double TerrainChunk::GetHeightAtLocationFromGDAL(const std::string &path, double
 
     double gt[6];
     if (ds->GetGeoTransform(gt) != CE_None)
-        STAR_THROW("Height raster '" + path + "' has no geotransform (unreferenced raster); "
-                   "cannot map (lat=" + std::to_string(latDeg) + ", lon=" + std::to_string(lonDeg) +
-                   ") to pixels.");
+        STAR_THROW("Height raster '" + path +
+                   "' has no geotransform (unreferenced raster); "
+                   "cannot map (lat=" +
+                   std::to_string(latDeg) + ", lon=" + std::to_string(lonDeg) + ") to pixels.");
 
     // Assume north-up, no rotation (gt[2] == 0 and gt[4] == 0).
     if (gt[2] != 0.0 || gt[4] != 0.0)
@@ -420,8 +420,7 @@ double TerrainChunk::GetHeightAtLocationFromGDAL(const std::string &path, double
     if (rasterSrs && !rasterSrs->IsGeographic() && transform->isNoOp())
     {
         const char *projcs = rasterSrs->GetAttrValue("PROJCS");
-        STAR_THROW("Height raster '" + path + "' is projected (CRS: '" +
-                   std::string(projcs ? projcs : "unknown") +
+        STAR_THROW("Height raster '" + path + "' is projected (CRS: '" + std::string(projcs ? projcs : "unknown") +
                    "') but the 4326->raster coordinate transformation could not be created. "
                    "Ensure the PROJ database is available to GDAL.");
     }
@@ -431,15 +430,16 @@ double TerrainChunk::GetHeightAtLocationFromGDAL(const std::string &path, double
     const double py = (rasterXY.y - gt[3]) / gt[5];
 
     if (std::isnan(px) || std::isnan(py))
-        STAR_THROW("Failed to reproject (lat=" + std::to_string(latDeg) + ", lon=" +
-                   std::to_string(lonDeg) + ") into the height raster's CRS ('" + path + "').");
+        STAR_THROW("Failed to reproject (lat=" + std::to_string(latDeg) + ", lon=" + std::to_string(lonDeg) +
+                   ") into the height raster's CRS ('" + path + "').");
 
     if (px < 0 || py < 0 || px >= nx || py >= ny)
     {
         STAR_THROW("Requested point (lat=" + std::to_string(latDeg) + ", lon=" + std::to_string(lonDeg) +
                    ") maps to pixel (" + std::to_string(px) + ", " + std::to_string(py) +
-                   ") which is outside the height raster '" + path + "' (size " +
-                   std::to_string(nx) + "x" + std::to_string(ny) + "). Verify the Shape.json center "
+                   ") which is outside the height raster '" + path + "' (size " + std::to_string(nx) + "x" +
+                   std::to_string(ny) +
+                   "). Verify the Shape.json center "
                    "lies within the height file's coverage and that the height file's CRS is "
                    "geographic or a supported projection.");
     }

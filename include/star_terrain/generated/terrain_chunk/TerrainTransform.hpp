@@ -1,11 +1,10 @@
 #pragma once
 
-#include <gdal_priv.h>
 #include <glm/glm.hpp>
-#include <ogr_spatialref.h>
-
-
 #include <memory>
+
+class OGRCoordinateTransformation;
+class GDALDataset; 
 
 namespace star::terrain
 {
@@ -29,7 +28,6 @@ class TerrainTransform
     }
 
     ~TerrainTransform();
-
     TerrainTransform(const TerrainTransform &) = delete;
     TerrainTransform &operator=(const TerrainTransform &) = delete;
     TerrainTransform(TerrainTransform &&) = delete;

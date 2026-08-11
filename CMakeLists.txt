@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(starlight_terrain
     DESCRIPTION "Terrain library for Starlight"
     LANGUAGES CXX
-    VERSION 1.0.13
+    VERSION 1.0.14
 )
 
 option(STARLIGHT_TERRAIN_BUILD_SHARED "Build as shared library" OFF)
@@ -126,7 +126,7 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/starlight_terrain
 )
 
-# Bundle PROJ (and GDAL) runtime data so coordinate transforms work from a
+# Bundle PROJ runtime data so coordinate transforms work from a
 # bare tar extract with no install step and no PROJ_LIB env var.
 # libproj.so is installed to ${CMAKE_INSTALL_LIBDIR} by the consuming app
 # (via RUNTIME_DEPENDENCIES); PROJ resolves its data dir relative to the
@@ -153,25 +153,11 @@ if(_STARLIGHT_TERRAIN_PROJ_DATA_DIR)
                 PATTERN "proj.ini"
                 PATTERN "*.json"
                 PATTERN "*.tif"
-                PATTERN "*.lst")
+                PATTERN "*.lst"
+                PATTERN "vcpkg*.json" EXCLUDE)
     message(STATUS "Bundling PROJ data: ${_STARLIGHT_TERRAIN_PROJ_DATA_DIR} -> ${CMAKE_INSTALL_DATADIR}/proj")
 else()
     message(WARNING "PROJ data (proj.db) not found under the vcpkg installed tree; "
                     "runtime coordinate transforms (e.g. EPSG:4326<->3857) will fail. "
                     "Ship proj.db and set PROJ_LIB on the target, or fix VCPKG_INSTALLED_DIR.")
 endif()
-
-# GDAL data (optional; some drivers need share/gdal).
-set(_STARLIGHT_TERRAIN_GDAL_CANDIDATES
-    "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/gdal"
-    "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/gdal"
-    "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/share/gdal"
-    "${CMAKE_SOURCE_DIR}/extern/vcpkg/installed/${VCPKG_TARGET_TRIPLET}/share/gdal"
-)
-foreach(_c ${_STARLIGHT_TERRAIN_GDAL_CANDIDATES})
-    if(IS_DIRECTORY "${_c}")
-        install(DIRECTORY "${_c}/" DESTINATION "${CMAKE_INSTALL_DATADIR}/gdal")
-        message(STATUS "Bundling GDAL data: ${_c} -> ${CMAKE_INSTALL_DATADIR}/gdal")
-        break()
-    endif()
-endforeach()

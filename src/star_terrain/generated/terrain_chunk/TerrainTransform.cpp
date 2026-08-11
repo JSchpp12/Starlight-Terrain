@@ -1,5 +1,8 @@
 #include "star_terrain/generated/terrain_chunk/TerrainTransform.hpp"
 
+#include <gdal_priv.h>
+#include <ogr_spatialref.h>
+
 namespace star::terrain
 {
 std::unique_ptr<TerrainTransform> TerrainTransform::create(GDALDataset *ds) noexcept
