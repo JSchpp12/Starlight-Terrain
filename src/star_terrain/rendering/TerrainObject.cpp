@@ -51,7 +51,7 @@ struct ThreadLocalDataset
 TerrainObject::TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def,
                              star::ShaderResolver &shaderResolver)
     : star::StarObject(loadMaterials(
-          def.terrainDir, std::get<1>(ReadTerrainTextureInfo((def.terrainDir / "height_info.json").string())))),
+          def.geometry.terrainDir, std::get<1>(ReadTerrainTextureInfo((def.geometry.terrainDir / "height_info.json").string())))),
       m_def(std::move(def))
 {
     m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
@@ -77,7 +77,7 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
     const auto infoPath = getHeightInfoFilePath();
     auto [readResult, fileInfo] = ReadTerrainTextureInfo(infoPath.string());
 
-    const auto terrainPath = std::filesystem::path(m_def.terrainDir);
+    const auto terrainPath = std::filesystem::path(m_def.geometry.terrainDir);
     auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(getShapeFilePath(), context.getCmdBus());
 
     std::vector<TerrainChunk> chunks;

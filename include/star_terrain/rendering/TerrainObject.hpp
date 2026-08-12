@@ -20,15 +20,15 @@ class TerrainObject : public star::StarObject
 
     std::filesystem::path getHeightInfoFilePath() const noexcept
     {
-        return m_def.terrainDir / "height_info.json";
+        return m_def.geometry.terrainDir / "height_info.json";
     }
     std::filesystem::path getShapeFilePath() const noexcept
     {
-        return m_def.terrainDir / "Shape.json";
+        return m_def.geometry.terrainDir / "Shape.json";
     }
     rendering::Type getRenderingType() const noexcept
     {
-        return m_def.renderType;
+        return m_def.geometry.renderType;
     }
 
 
