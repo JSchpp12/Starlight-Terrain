@@ -70,17 +70,8 @@ TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setRende
 TerrainGeometryDefinition TerrainGeometryDefinition::Builder::build()
 {
     if (m_terrainDir.empty())
-    {
         STAR_THROW("TerrainGeometryDefinition::Builder::build() requires a terrain directory");
-    }
 
-    // --- geometry creation (moved from TerrainObject::loadMeshes) ---
-    // Read the chunk layout + height raster, generate each chunk's vertices/
-    // indices, upload them to GPU vertex/index buffers, and collect the
-    // resulting handles + counts + bounding boxes in meshDescriptions. This
-    // runs once per terrain directory; every TerrainObject built from this
-    // definition reuses these buffers instead of re-reading the raster and
-    // re-uploading duplicates.
     const auto infoPath = m_terrainDir / "height_info.json";
     auto [readResult, fileInfo] = ReadTerrainTextureInfo(infoPath.string());
 

@@ -1,18 +1,16 @@
-﻿#include "star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp"
+#include "star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp"
 
 #include "star_terrain/rendering/TerrainShadowRenderPhase.hpp"
 
-#include <starlight/command/command_order/DeclarePass.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/managers/Semaphore.hpp>
 #include <starlight/core/device/system/event/ManagerRequest.hpp>
-#include <starlight/core/helper/queue/QueueHelpers.hpp>
+#include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
+#include <vulkan/vulkan.hpp>
 
 #include <star_common/FrameTracker.hpp>
 #include <star_common/HandleTypeRegistry.hpp>
 
-#include <cassert>
-#include <functional>
 #include <memory>
 #include <vector>
 
@@ -42,49 +40,70 @@ static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus
 }
 
 TerrainShadowRenderPhaseProvider::TerrainShadowRenderPhaseProvider(
-    std::shared_ptr<star::core::renderer::FrameData> frameData, star::Handle offscreenPhaseHandle,
-    star::StarCamera *camera, bool enableShadowCasting)
-    : m_frameData(std::move(frameData)), m_offscreenPhaseHandle(std::move(offscreenPhaseHandle)),
-      m_camera(camera), m_enableShadowCasting(enableShadowCasting)
+    star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights,
+    std::shared_ptr<star::StarCamera> camera, std::vector<std::shared_ptr<star::StarObject>> objects,
+    bool enableShadowCasting, star::Command_Buffer_Order_Index order)
+    : DefaultRenderPhaseProvider(context, std::move(lights), std::move(camera), std::move(objects)),
+      m_enableShadowCasting(enableShadowCasting)
 {
+    m_config.order = star::Command_Buffer_Order::before_render_pass;
+    m_config.orderIndex = order;
+    m_config.waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+}
+
+star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRenderTargets(
+    core::device::DeviceContext &ctx, star::core::renderer::RenderingContext &renderingContext)
+{
+    auto targets = star::core::renderer::RenderTargets::forOffscreen(ctx, renderingContext);
+
+    auto *graphicsQueue = core::helper::GetEngineDefaultQueue(ctx.getEventBus(), ctx.getGraphicsManagers().queueManager,
+                                                              star::Queue_Type::Tpresent);
+    assert(graphicsQueue != nullptr);
+
+    for (const auto &th : targets.depthHandles())
+    {
+        const auto &tx = ctx.getGraphicsManagers().imageManager.get(th)->texture;
+
+        auto oneTimeSetup = star::core::helper::BeginSingleTimeCommands(
+            ctx.getDevice(), ctx.getEventBus(), ctx.getManagerCommandBuffer().m_manager, star::Queue_Type::Tgraphics);
+
+        vk::ImageMemoryBarrier2 barrier[1]{vk::ImageMemoryBarrier2()
+                                               .setOldLayout(vk::ImageLayout::eUndefined)
+                                               .setNewLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+                                               .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                               .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                               .setImage(tx.getVulkanImage())
+                                               .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                                               .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+                                               .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead |
+                                                                 vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
+                                               .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
+                                               .setSubresourceRange(vk::ImageSubresourceRange()
+                                                                        .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                                                        .setBaseMipLevel(0)
+                                                                        .setLevelCount(vk::RemainingMipLevels)
+                                                                        .setBaseArrayLayer(0)
+                                                                        .setLayerCount(vk::RemainingArrayLayers))};
+
+        oneTimeSetup.buffer().pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barrier));
+        star::core::helper::EndSingleTimeCommands(*graphicsQueue, std::move(oneTimeSetup));
+    }
+
+    return targets;
 }
 
 std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvider::build(
-    star::core::device::DeviceContext &c, star::core::renderer::RenderPhaseRegistry &phases)
+    star::core::device::DeviceContext &c, star::core::renderer::RenderPhaseRegistry & /*phases*/)
 {
-    const uint8_t numFramesInFlight = c.frameTracker().getSetup().getNumFramesInFlight();
-
     auto phase = std::make_unique<TerrainShadowRenderPhase>(m_enableShadowCasting);
 
-    phase->m_device = c.getDevice().getVulkanDevice();
+    buildCore(phase.get(), c);
+
+    // Shadow-specific tail: timeline semaphores + cmd-bus/device handles used by
+    // the phase's self-trigger (frameUpdate) and submission override.
     phase->m_cmdBus = &c.getCmdBus();
-    phase->m_frameData = m_frameData;
-
-    auto *offscreenPhase = phases.getPhase(m_offscreenPhaseHandle);
-    assert(offscreenPhase != nullptr && "offscreen render phase must be built before the terrain shadow render phase");
-
-    phase->computeQueueFamilyIndex =
-        star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
-                                                  star::Queue_Type::Tcompute)
-            ->getParentQueueFamilyIndex();
-
+    phase->m_device = c.getDevice().getVulkanDevice();
     phase->m_timelineSemaphores = CreateSemaphores(c.getEventBus(), c.frameTracker());
-
-    phase->m_commandBuffer = c.getManagerCommandBuffer().submit(
-        star::core::device::manager::ManagerCommandBuffer::Request{
-            .recordBufferCallback = std::bind(&TerrainShadowRenderPhase::recordCommandBuffer, phase.get(),
-                                              std::placeholders::_1, std::placeholders::_2, std::placeholders::_3),
-            .order = star::Command_Buffer_Order::before_render_pass,
-            .orderIndex = star::Command_Buffer_Order_Index::second,
-            .type = star::Queue_Type::Tcompute,
-            .waitStage = vk::PipelineStageFlagBits::eAllCommands,
-            .willBeSubmittedEachFrame = true,
-            .recordOnce = false,
-            .overrideBufferSubmissionCallback = phase->getSubmissionOverride()},
-        numFramesInFlight);
-
-    auto cmd = star::command_order::DeclarePass(phase->m_commandBuffer, phase->computeQueueFamilyIndex);
-    c.begin().set(cmd).submit();
 
     return phase;
 }

@@ -1,7 +1,6 @@
-﻿#pragma once
+#pragma once
 
-#include <starlight/core/renderer/FrameData.hpp>
-#include <starlight/core/renderer/RenderPhase.hpp>
+#include <starlight/core/renderer/DefaultRenderPhase.hpp>
 #include <starlight/core/renderer/RenderingContext.hpp>
 
 #include <star_common/FrameTracker.hpp>
@@ -18,14 +17,7 @@ namespace star::terrain
 {
 class TerrainShadowRenderPhaseProvider;
 
-/// Runtime half of the terrain shadow renderer. Extends RenderPhase but records
-/// a compute pass (no render targets/groups): it will own the shadow-mapping
-/// pipelines, the shadow data buffers it produces, and the timeline semaphores,
-/// and it samples the offscreen render-to images as input. All one-shot setup
-/// -- queue-family lookup, DeclarePass, descriptor/command-buffer request --
-/// lives on TerrainShadowRenderPhaseProvider::build. Per-frame recording,
-/// frameUpdate, cleanup, and the submission override live here.
-class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
+class TerrainShadowRenderPhase : public star::core::renderer::DefaultRenderPhase
 {
   public:
     friend class TerrainShadowRenderPhaseProvider;
@@ -39,12 +31,9 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
     TerrainShadowRenderPhase &operator=(TerrainShadowRenderPhase &&) = delete;
 
     virtual void frameUpdate(star::common::IDeviceContext &context) override;
-    virtual void cleanupRender(star::common::IDeviceContext &context) override;
     virtual void recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
                                      const star::common::FrameTracker &frameTracker,
                                      const uint64_t &frameIndex) override;
-
-    bool isRenderReady(star::core::device::DeviceContext &context);
 
     const std::vector<star::Handle> &getTimelineSemaphores() const
     {
@@ -65,16 +54,17 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
     getSubmissionOverride() override;
 
   private:
-    std::shared_ptr<star::core::renderer::FrameData> m_frameData;
-    star::core::renderer::RenderingContext m_renderingContext = star::core::renderer::RenderingContext();
     std::vector<star::Handle> m_timelineSemaphores;
-    uint32_t computeQueueFamilyIndex{0};
     bool m_shadowCastingEnabled = false;
-    bool isReady = false;
     star::core::CommandBus *m_cmdBus{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};
 
-    void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
-                        const uint64_t &frameIndex);
+    void waitForSemaphore(const star::common::FrameTracker &ft) const;
+
+    vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
+                               std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
+                               std::vector<vk::Semaphore> dataSemaphores,
+                               std::vector<vk::PipelineStageFlags> dataWaitPoints,
+                               std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue);
 };
 } // namespace star::terrain
