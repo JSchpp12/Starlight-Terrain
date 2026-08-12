@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.26)
+﻿cmake_minimum_required(VERSION 3.26)
 
 project(starlight_terrain
     DESCRIPTION "Terrain library for Starlight"
@@ -75,6 +75,15 @@ add_library(${PROJECT_NAME} ${LIBTYPE}
 if(COMMAND star_add_pch)
     star_add_pch(${PROJECT_NAME})
 endif()
+
+# Shared, generated precompiled header (GDAL).
+# Other targets add their own PCH from the same generated source via:
+#     if(COMMAND star_add_gdal_pch)
+#         star_add_gdal_pch(<target>)
+#     endif()
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/StarGdalPch.cmake")
+star_add_gdal_pch(${PROJECT_NAME})
+
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_23)
 
 if (MSVC)
@@ -177,4 +186,3 @@ else()
                     "runtime coordinate transforms (e.g. EPSG:4326<->3857) will fail. "
                     "Ship proj.db and set PROJ_LIB on the target, or fix VCPKG_INSTALLED_DIR.")
 endif()
-
