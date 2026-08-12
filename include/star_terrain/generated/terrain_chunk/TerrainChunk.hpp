@@ -1,5 +1,6 @@
 #pragma once
 
+#include "star_terrain/rendering/TerrainGeometryDefinition.hpp"
 #include "star_terrain/rendering/TerrainVertex.hpp"
 
 #include <glm/glm.hpp>
@@ -29,6 +30,9 @@ class TerrainChunk
     void load(GDALDataset *sharedDataset);
 
     star::StarMesh getMesh(star::core::device::DeviceContext &context, std::shared_ptr<star::StarMaterial> myMaterial);
+
+    /// @brief Upload this chunk's vertices/indices to GPU buffers
+    ChunkMeshDescription createMeshDescription(star::core::device::DeviceContext &context);
 
     [[nodiscard]] const std::string &getHeightFile() noexcept
     {

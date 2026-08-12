@@ -1,57 +1,29 @@
 #include "star_terrain/rendering/TerrainObject.hpp"
 
 #include "star_terrain/file_data/texture_data/Reader.hpp"
-#include "star_terrain/generated/terrain_chunk/TerrainChunk.hpp"
-#include "star_terrain/io/TerrainShapeInfoLoader.hpp"
 #include "star_terrain/rendering/TerrainVertexDescription.hpp"
 
 #include <starlight/common/helpers/FileHelpers.hpp>
 #include <starlight/common/materials/TextureMaterial.hpp>
 #include <starlight/core/Exceptions.hpp>
-#include <starlight/core/logging/LoggingFactory.hpp>
-
-#include <gdal_priv.h>
-#include <tbb/tbb.h>
+#include <starlight/virtual/StarMesh.hpp>
 
 #include <cassert>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace star::terrain
 {
-/// Per-thread GDAL dataset holder. GDAL does not allow concurrent use of a
-/// single GDALDataset from multiple threads, so each TBB worker opens its own
-/// handle to the same height file. Closed in the destructor on the worker
-/// thread that created it.
-struct ThreadLocalDataset
-{
-    GDALDataset *ds{nullptr};
-
-    explicit ThreadLocalDataset(const std::string &path)
-    {
-        ds = static_cast<GDALDataset *>(GDALOpen(path.c_str(), GA_ReadOnly));
-        if (!ds)
-            STAR_THROW("Failed to open GDAL dataset");
-    }
-
-    ThreadLocalDataset(const ThreadLocalDataset &) = delete;
-    ThreadLocalDataset &operator=(const ThreadLocalDataset &) = delete;
-
-    ~ThreadLocalDataset()
-    {
-        if (ds)
-            GDALClose(ds);
-    }
-};
 
 TerrainObject::TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def,
                              star::ShaderResolver &shaderResolver)
-    : star::StarObject(loadMaterials(
-          def.geometry.terrainDir, std::get<1>(ReadTerrainTextureInfo((def.geometry.terrainDir / "height_info.json").string())))),
+    : star::StarObject(
+          loadMaterials(def.geometry.terrainDir,
+                        std::get<1>(ReadTerrainTextureInfo((def.geometry.terrainDir / "height_info.json").string())))),
       m_def(std::move(def))
 {
     m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
@@ -74,68 +46,17 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
         static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
     }
 
-    const auto infoPath = getHeightInfoFilePath();
-    auto [readResult, fileInfo] = ReadTerrainTextureInfo(infoPath.string());
-
-    const auto terrainPath = std::filesystem::path(m_def.geometry.terrainDir);
-    auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(getShapeFilePath(), context.getCmdBus());
-
-    std::vector<TerrainChunk> chunks;
-    GDALAllRegister();
-
-    CoverageInfo shapeInfo = loadingShapeInfo.get();
-    glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
-
-    const auto fullHeightFilePath = terrainPath / std::filesystem::path(fileInfo.fullHeightFilePath);
-
-    if (!std::filesystem::exists(fullHeightFilePath))
-    {
-        std::ostringstream oss;
-        oss << "Elevation file does not exist: " << fullHeightFilePath.string()
-            << ". The terrain directory is expected to contain the height raster named in "
-            << "height_info.json (fullHeightFilePath = '" << fileInfo.fullHeightFilePath << "').";
-        STAR_THROW(oss.str());
-    }
-
-    bool setWorldCenter = false;
-    for (size_t i = 0; i < fileInfo.chunks.size(); i++)
-    {
-        if (!setWorldCenter)
-        {
-            setWorldCenter = true;
-            worldCenter.z = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(), shapeInfo.center.x,
-                                                                      shapeInfo.center.y);
-        }
-
-        chunks.emplace_back(fullHeightFilePath.string(), fileInfo.chunks[i].cornerNE, fileInfo.chunks[i].cornerSE,
-                            fileInfo.chunks[i].cornerSW, fileInfo.chunks[i].cornerNW, worldCenter,
-                            fileInfo.chunks[i].center);
-    }
-
-    star::core::logging::info("Launching load tasks");
-
-    tbb::enumerable_thread_specific<std::unique_ptr<ThreadLocalDataset>> tls;
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, chunks.size()), [&](const tbb::blocked_range<size_t> &r) {
-        auto &local = tls.local();
-        if (!local)
-            local = std::make_unique<ThreadLocalDataset>(fullHeightFilePath.string());
-
-        for (size_t i = r.begin(); i != r.end(); ++i)
-        {
-            chunks[i].load(local->ds);
-        }
-    });
-    tls.clear();
-    star::core::logging::info("Done");
+    const auto &meshDescriptions = m_def.geometry.meshDescriptions;
+    assert(meshDescriptions.size() == m_meshMaterials.size() && "Every chunk should have its own material");
 
     std::vector<star::StarMesh> terrainMeshes;
-    terrainMeshes.reserve(chunks.size());
+    terrainMeshes.reserve(meshDescriptions.size());
 
-    assert(chunks.size() == m_meshMaterials.size() && "Every chunk should have its own material");
-
-    for (size_t i = 0; i < chunks.size(); i++)
+    for (size_t i = 0; i < meshDescriptions.size(); i++)
     {
-        terrainMeshes.emplace_back(chunks[i].getMesh(context, m_meshMaterials[i]));
+        const auto &desc = meshDescriptions[i];
+        terrainMeshes.emplace_back(desc.vertBuffer, desc.indBuffer, desc.vertCount, desc.indCount, m_meshMaterials[i],
+                                   desc.bbMin, desc.bbMax, false);
     }
 
     return terrainMeshes;

@@ -33,6 +33,7 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/TerrainTransform.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainRenderingType.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObjectDefinition.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainGeometryDefinition.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObject.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainShadowRenderPhase.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp
@@ -55,6 +56,7 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainChunk.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainTransform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainObject.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainGeometryDefinition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhaseProvider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/FromTerrainDirLoader.cpp
@@ -185,4 +187,38 @@ else()
     message(WARNING "PROJ data (proj.db) not found under the vcpkg installed tree; "
                     "runtime coordinate transforms (e.g. EPSG:4326<->3857) will fail. "
                     "Ship proj.db and set PROJ_LIB on the target, or fix VCPKG_INSTALLED_DIR.")
+endif()
+
+
+# --- Build-tree PROJ data (development runs without an install step) ----------
+# The install() rules above only fire during `cmake --install` / CPack. When a
+# developer builds and runs an executable straight out of the build tree (e.g.
+# the Ninja presets), PROJ must still locate proj.db. vcpkg builds PROJ with
+# EMBED_PROJ_DATA_PATH=OFF and PROJ_DATA_ENV_VAR_TRIED_LAST=ON, so PROJ resolves
+# its data directory *relative to proj_9.dll* as <parent_of_dll_dir>/share/proj.
+# vcpkg deploys proj_9.dll next to every executable that links it, and the depth
+# of that deploy directory varies by generator and target:
+#   - Visual Studio (multi-config), exe/DLL in ${CMAKE_BINARY_DIR}/$<CONFIG>  -> ${CMAKE_BINARY_DIR}/share/proj
+#   - Ninja, main exe:               exe/DLL in ${CMAKE_BINARY_DIR}           -> ${CMAKE_BINARY_DIR}/../share/proj
+#   - Ninja, test exes:              exe/DLL in ${CMAKE_BINARY_DIR}/tests    -> ${CMAKE_BINARY_DIR}/share/proj
+if(_STARLIGHT_TERRAIN_PROJ_DATA_DIR)
+    set(_STARLIGHT_TERRAIN_PROJ_BUILD_DIRS
+        "${CMAKE_BINARY_DIR}/share/proj"
+        "${CMAKE_BINARY_DIR}/../share/proj"
+    )
+    add_custom_target(bundle_proj_data ALL
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/share/proj"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+                "${_STARLIGHT_TERRAIN_PROJ_DATA_DIR}" "${CMAKE_BINARY_DIR}/share/proj"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/../share/proj"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+                "${_STARLIGHT_TERRAIN_PROJ_DATA_DIR}" "${CMAKE_BINARY_DIR}/../share/proj"
+        COMMENT "Staging PROJ data for build-tree runs: ${_STARLIGHT_TERRAIN_PROJ_DATA_DIR}"
+        VERBATIM
+    )
+    message(STATUS "Staging PROJ data for build-tree runs -> ${CMAKE_BINARY_DIR}/share/proj ; ${CMAKE_BINARY_DIR}/../share/proj")
+else()
+    message(WARNING "PROJ data (proj.db) not staged into the build tree; running "
+                    "the freshly built executable without an install step will "
+                    "produce GDAL 'cannot find proj.db' warnings.")
 endif()

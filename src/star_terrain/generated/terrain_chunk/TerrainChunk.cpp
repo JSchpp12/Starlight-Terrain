@@ -65,8 +65,7 @@ void TerrainChunk::load(GDALDataset *sharedDataset)
     loadGeomInfo(dataset, verts, inds, this->firstLine, this->lastLine);
 }
 
-star::StarMesh TerrainChunk::getMesh(star::core::device::DeviceContext &context,
-                                     std::shared_ptr<star::StarMaterial> myMaterial)
+ChunkMeshDescription TerrainChunk::createMeshDescription(star::core::device::DeviceContext &context)
 {
     const auto &graphicsIndex =
         star::core::helper::GetEngineDefaultQueue(context.getEventBus(), context.getGraphicsManagers().queueManager,
@@ -87,14 +86,17 @@ star::StarMesh TerrainChunk::getMesh(star::core::device::DeviceContext &context,
         bbMax = glm::max(bbMax, v.pos);
     }
 
-    return star::StarMesh{vertBuffer,
-                          indBuffer,
-                          static_cast<uint32_t>(verts.size()),
-                          static_cast<uint32_t>(inds.size()),
-                          myMaterial,
-                          bbMin,
-                          bbMax,
-                          false};
+    return ChunkMeshDescription{
+        bbMin, bbMax, vertBuffer, indBuffer, static_cast<uint32_t>(verts.size()), static_cast<uint32_t>(inds.size())};
+}
+
+star::StarMesh TerrainChunk::getMesh(star::core::device::DeviceContext &context,
+                                     std::shared_ptr<star::StarMaterial> myMaterial)
+{
+    const auto desc = createMeshDescription(context);
+
+    return star::StarMesh{desc.vertBuffer,       desc.indBuffer, desc.vertCount, desc.indCount,
+                          std::move(myMaterial), desc.bbMin,     desc.bbMax,     false};
 }
 
 void TerrainChunk::loadLocation(TerrainDataset &dataset, std::vector<glm::dvec3> &vertPositions,
