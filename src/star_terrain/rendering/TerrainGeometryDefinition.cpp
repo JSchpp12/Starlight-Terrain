@@ -78,6 +78,8 @@ TerrainGeometryDefinition TerrainGeometryDefinition::Builder::build()
     auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(m_terrainDir / "Shape.json", m_context.getCmdBus());
 
     std::vector<TerrainChunk> chunks;
+    chunks.reserve(fileInfo.chunks.size());
+
     GDALAllRegister();
 
     CoverageInfo shapeInfo = loadingShapeInfo.get();

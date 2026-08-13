@@ -21,9 +21,9 @@ namespace star::terrain
 
 TerrainObject::TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def,
                              star::ShaderResolver &shaderResolver)
-    : star::StarObject(
-          loadMaterials(def.geometry.terrainDir,
-                        std::get<1>(ReadTerrainTextureInfo((def.geometry.terrainDir / "height_info.json").string())))),
+    : star::StarObject(loadMaterials(
+          def.geometry.terrainDir,
+          std::get<1>(ReadTerrainTextureInfo((def.geometry.terrainDir / "height_info.json").string())), def.colorMode)),
       m_def(std::move(def))
 {
     m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
@@ -41,9 +41,13 @@ star::PipelineProvider TerrainObject::getPipelineProvider(vk::PipelineLayout pip
 
 std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::DeviceContext &context)
 {
-    for (auto &material : m_meshMaterials)
+    // conditionally pre-load texturesI
+    if (m_def.colorMode == star::terrain::ColoringMode::color)
     {
-        static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
+        for (auto &material : m_meshMaterials)
+        {
+            static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
+        }
     }
 
     const auto &meshDescriptions = m_def.geometry.meshDescriptions;
@@ -73,7 +77,8 @@ std::optional<std::filesystem::path> CheckForCompressedTexture(const std::filesy
 }
 
 std::vector<std::shared_ptr<star::StarMaterial>> TerrainObject::loadMaterials(const std::filesystem::path &terrainDir,
-                                                                              const TextureDataInfo &fileInfo)
+                                                                              const TextureDataInfo &fileInfo,
+                                                                              star::terrain::ColoringMode colorMode)
 {
     std::vector<std::shared_ptr<star::StarMaterial>> materials;
     materials.reserve(fileInfo.chunks.size());
@@ -106,7 +111,14 @@ std::vector<std::shared_ptr<star::StarMaterial>> TerrainObject::loadMaterials(co
             STAR_THROW(oss.str());
         }
 
-        materials.push_back(std::make_shared<star::TextureMaterial>(found.value().string()));
+        if (colorMode == star::terrain::ColoringMode::color)
+        {
+            materials.push_back(std::make_shared<star::TextureMaterial>(found.value().string()));
+        }
+        else
+        {
+            materials.push_back(std::make_shared<star::StarMaterial>());
+        }
     }
 
     return materials;

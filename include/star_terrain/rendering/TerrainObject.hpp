@@ -31,9 +31,8 @@ class TerrainObject : public star::StarObject
         return m_def.geometry.renderType;
     }
 
+    virtual star::PipelineProvider getPipelineProvider(vk::PipelineLayout pipelineLayout) override;
 
-    virtual star::PipelineProvider getPipelineProvider(vk::PipelineLayout pipelineLayout) override; 
-    
   protected:
     std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
 
@@ -41,6 +40,7 @@ class TerrainObject : public star::StarObject
     TerrainObjectDefinition m_def;
 
     static std::vector<std::shared_ptr<star::StarMaterial>> loadMaterials(const std::filesystem::path &terrainDir,
-                                                                          const TextureDataInfo &fileInfo);
+                                                                          const TextureDataInfo &fileInfo,
+                                                                          star::terrain::ColoringMode colorMode);
 };
 } // namespace star::terrain
