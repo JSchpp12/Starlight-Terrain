@@ -54,13 +54,19 @@ TerrainShadowRenderPhaseProvider::TerrainShadowRenderPhaseProvider(
 star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRenderTargets(
     core::device::DeviceContext &ctx, star::core::renderer::RenderingContext &renderingContext)
 {
-    auto targets = star::core::renderer::RenderTargets::forOffscreen(ctx, renderingContext);
+    const int width = static_cast<int>(ctx.getEngineResolution().width);
+    const int height = static_cast<int>(ctx.getEngineResolution().height);
+
+    auto depthTextures = star::core::renderer::RenderTargets::createDefaultDepthAttachments(
+        ctx, static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight()), width, height);
 
     auto *graphicsQueue = core::helper::GetEngineDefaultQueue(ctx.getEventBus(), ctx.getGraphicsManagers().queueManager,
                                                               star::Queue_Type::Tpresent);
     assert(graphicsQueue != nullptr);
 
-    for (const auto &th : targets.depthHandles())
+    auto depthHandles = star::core::renderer::RenderTargets::registerTextures(ctx, renderingContext, depthTextures);
+
+    for (const auto &th : depthHandles)
     {
         const auto &tx = ctx.getGraphicsManagers().imageManager.get(th)->texture;
 
@@ -89,7 +95,8 @@ star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRend
         star::core::helper::EndSingleTimeCommands(*graphicsQueue, std::move(oneTimeSetup));
     }
 
-    return targets;
+    return star::core::renderer::RenderTargets({}, std::nullopt, std::move(depthHandles),
+                                               depthTextures.front().getBaseFormat());
 }
 
 std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvider::build(
