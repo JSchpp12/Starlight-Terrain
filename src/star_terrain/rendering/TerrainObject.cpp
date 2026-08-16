@@ -34,9 +34,15 @@ star::PipelineProvider TerrainObject::getPipelineProvider(vk::PipelineLayout pip
 {
     return star::PipelineProvider(
         {m_vertexShaderHandle, m_fragmentShaderHandle}, pipelineLayout,
-        star::GraphicsOverrides{.vertexInput = star::VertexInputState{
-                                    .bindings = star::terrain::rendering::getVertexBindingDescription(),
-                                    .attributes = star::terrain::rendering::getVertexInputAttributeDescription()}});
+        star::GraphicsOverrides{
+            .vertexInput =
+                star::VertexInputState{.bindings = star::terrain::rendering::getVertexBindingDescription(),
+                                       .attributes = star::terrain::rendering::getVertexInputAttributeDescription()},
+            .dynamicStates =
+                m_def.colorMode == ColoringMode::greyscale
+                    ? std::vector<vk::DynamicState>{vk::DynamicState::eScissor, vk::DynamicState::eViewport,
+                                                    vk::DynamicState::eLineWidth}
+                    : std::vector<vk::DynamicState>()});
 }
 
 std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::DeviceContext &context)

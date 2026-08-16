@@ -64,25 +64,23 @@ void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer,
     vk::Viewport viewport = this->prepareRenderingViewport(m_renderingContext.targetResolution);
     commandBuffer.setViewport(0, viewport);
 
-    recordPreRenderPassCommands(commandBuffer, frameTracker);
+    {
+        const vk::Rect2D scissor = this->prepareRenderingScissor(m_renderingContext.targetResolution);
+        commandBuffer.setScissor(0, scissor);
+    }
 
+    recordPreRenderPassCommands(commandBuffer, frameTracker);
     recordCommandBufferDependencies(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
 
     {
         vk::RenderingAttachmentInfo colorAttachments;
         std::optional<vk::RenderingAttachmentInfo> depthAttachment;
-        if (m_renderTargets.hasColor())
-            colorAttachments = prepareDynamicRenderingInfoColorAttachment(frameTracker);
         if (m_renderTargets.hasDepth())
             depthAttachment = prepareDynamicRenderingInfoDepthAttachment(frameTracker);
 
         auto renderArea = vk::Rect2D{vk::Offset2D{}, m_renderingContext.targetResolution};
-        vk::RenderingInfoKHR renderInfo{};
-        renderInfo.renderArea = renderArea;
-        renderInfo.layerCount = 1;
-        renderInfo.pDepthAttachment = depthAttachment ? &*depthAttachment : nullptr;
-        renderInfo.pColorAttachments = &colorAttachments;
-        renderInfo.colorAttachmentCount = m_renderTargets.hasColor() ? 1 : 0;
+        const auto renderInfo =
+            vk::RenderingInfoKHR().setRenderArea(renderArea).setLayerCount(1).setPDepthAttachment(&*depthAttachment);
         commandBuffer.beginRendering(renderInfo);
     }
 
@@ -163,23 +161,6 @@ TerrainShadowRenderPhase &TerrainShadowRenderPhase::setDataRolesOwned(star::Hand
     return *this;
 }
 
-vk::RenderingAttachmentInfo TerrainShadowRenderPhase::prepareDynamicRenderingInfoColorAttachment(
-    const star::common::FrameTracker &frameTracker)
-{
-    size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
-
-    const auto *r = m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index]);
-
-    vk::RenderingAttachmentInfoKHR colorAttachmentInfo{};
-    colorAttachmentInfo.imageView = r->getImageView();
-    colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
-    colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
-    colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
-    colorAttachmentInfo.clearValue = vk::ClearValue{vk::ClearValue{std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}}};
-
-    return colorAttachmentInfo;
-}
-
 vk::RenderingAttachmentInfo TerrainShadowRenderPhase::prepareDynamicRenderingInfoDepthAttachment(
     const star::common::FrameTracker &frameTracker)
 {
@@ -201,11 +182,19 @@ vk::Viewport TerrainShadowRenderPhase::prepareRenderingViewport(const vk::Extent
     vk::Viewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float)resolution.width;
-    viewport.height = (float)resolution.height;
+    viewport.width = resolution.width;
+    viewport.height = resolution.height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     return viewport;
+}
+
+vk::Rect2D TerrainShadowRenderPhase::prepareRenderingScissor(const vk::Extent2D &resolution)
+{
+    vk::Rect2D scissor{};
+    scissor.offset = vk::Offset2D{0, 0};
+    scissor.extent = resolution;
+    return scissor;
 }
 
 void TerrainShadowRenderPhase::waitForSemaphore(const star::common::FrameTracker &ft) const

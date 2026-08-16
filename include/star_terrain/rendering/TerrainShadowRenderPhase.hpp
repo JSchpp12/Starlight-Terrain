@@ -63,9 +63,8 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
                                            vk::BufferMemoryBarrier2 *, size_t *) noexcept;
 
     vk::Viewport prepareRenderingViewport(const vk::Extent2D &resolution);
-    virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoColorAttachment(
-        const star::common::FrameTracker &frameTracker);
-    virtual vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
+    vk::Rect2D prepareRenderingScissor(const vk::Extent2D &resolution);
+    vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const star::common::FrameTracker &frameTracker);
 
     virtual void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,

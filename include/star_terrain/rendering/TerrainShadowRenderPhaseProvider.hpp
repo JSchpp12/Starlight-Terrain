@@ -23,12 +23,9 @@ class TerrainShadowRenderPhaseProvider : public star::core::renderer::IRenderPha
   public:
     TerrainShadowRenderPhaseProvider(star::core::device::DeviceContext &context,
                                      std::shared_ptr<std::vector<star::Light>> lights,
-                                     std::shared_ptr<star::StarCamera> camera,
                                      std::vector<std::shared_ptr<star::StarObject>> objects, bool enableShadowCasting,
                                      star::Command_Buffer_Order_Index order);
-
     virtual ~TerrainShadowRenderPhaseProvider() = default;
-
     TerrainShadowRenderPhaseProvider(const TerrainShadowRenderPhaseProvider &) = delete;
     TerrainShadowRenderPhaseProvider &operator=(const TerrainShadowRenderPhaseProvider &) = delete;
     TerrainShadowRenderPhaseProvider(TerrainShadowRenderPhaseProvider &&) = default;

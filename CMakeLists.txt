@@ -40,6 +40,8 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/FromTerrainDirLoader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainVertexDescription.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/ShadowCameraController.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/ShadowCameraTransfer.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/layout/TerrainGrid.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/ReadResult.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeInfoLoader.hpp
@@ -63,6 +65,8 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhaseProvider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/FromTerrainDirLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainVertexDescription.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/ShadowCameraController.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/ShadowCameraTransfer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/layout/TerrainGrid.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainShapeInfoLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/texture_data/Reader.cpp

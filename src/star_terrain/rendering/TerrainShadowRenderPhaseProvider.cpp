@@ -1,7 +1,15 @@
 #include "star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp"
 
+#include "star_terrain/rendering/ShadowCameraController.hpp"
 #include "star_terrain/rendering/TerrainShadowRenderPhase.hpp"
 
+#include <cassert>
+#include <functional>
+#include <memory>
+#include <star_common/EventBus.hpp>
+#include <star_common/FrameTracker.hpp>
+#include <star_common/Handle.hpp>
+#include <star_common/HandleTypeRegistry.hpp>
 #include <starlight/command/command_order/DeclarePass.hpp>
 #include <starlight/common/controllers/ManagerController_RenderResource_GlobalInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
@@ -13,18 +21,9 @@
 #include <starlight/core/renderer/DescriptorRecipe.hpp>
 #include <starlight/core/renderer/FrameData.hpp>
 #include <starlight/event/DescriptorPoolReady.hpp>
-#include <vulkan/vulkan.hpp>
-
-#include <star_common/EventBus.hpp>
-#include <star_common/FrameTracker.hpp>
-#include <star_common/Handle.hpp>
-#include <star_common/HandleTypeRegistry.hpp>
-
-#include <cassert>
-#include <functional>
-#include <memory>
 #include <utility>
 #include <vector>
+#include <vulkan/vulkan.hpp>
 
 namespace star::terrain
 {
@@ -53,9 +52,10 @@ static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus
 }
 
 static std::shared_ptr<star::core::renderer::FrameData> CreateShadowFrameData(
-    star::core::device::DeviceContext &context, std::shared_ptr<star::StarCamera> camera)
+    star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights)
 {
-    auto cameraController = std::make_shared<star::ManagerController::RenderResource::GlobalInfo>(camera);
+    auto cameraController = std::make_shared<star::terrain::rendering::ShadowCameraController>(
+        context.frameTracker().getSetup().getNumFramesInFlight(), lights, 0);
     auto fd = std::make_shared<star::core::renderer::FrameData>();
     fd->add(std::move(cameraController), star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera));
     return fd;
@@ -103,9 +103,9 @@ static std::vector<star::StarRenderGroup> CreateRenderingGroups(star::core::devi
 
 TerrainShadowRenderPhaseProvider::TerrainShadowRenderPhaseProvider(
     star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights,
-    std::shared_ptr<star::StarCamera> camera, std::vector<std::shared_ptr<star::StarObject>> objects,
-    bool enableShadowCasting, star::Command_Buffer_Order_Index order)
-    : m_objects(std::move(objects)), m_frameData(CreateShadowFrameData(context, camera)), m_lights(std::move(lights)),
+    std::vector<std::shared_ptr<star::StarObject>> objects, bool enableShadowCasting,
+    star::Command_Buffer_Order_Index order)
+    : m_objects(std::move(objects)), m_frameData(CreateShadowFrameData(context, lights)), m_lights(std::move(lights)),
       m_enableShadowCasting(enableShadowCasting)
 {
     m_config.order = star::Command_Buffer_Order::before_render_pass;
@@ -116,11 +116,9 @@ TerrainShadowRenderPhaseProvider::TerrainShadowRenderPhaseProvider(
 star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRenderTargets(
     star::core::device::DeviceContext &ctx, star::core::renderer::RenderingContext &renderingContext)
 {
-    const int width = static_cast<int>(ctx.getEngineResolution().width);
-    const int height = static_cast<int>(ctx.getEngineResolution().height);
-
     auto depthTextures = star::core::renderer::RenderTargets::createDefaultDepthAttachments(
-        ctx, static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight()), width, height);
+        ctx, static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
+        renderingContext.targetResolution.width, renderingContext.targetResolution.height);
 
     auto *graphicsQueue = star::core::helper::GetEngineDefaultQueue(
         ctx.getEventBus(), ctx.getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
@@ -190,7 +188,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
 
     phase->m_frameData->prepRender(c, c.frameTracker().getSetup().getNumFramesInFlight());
 
-    phase->m_renderingContext.targetResolution = c.getEngineResolution();
+    phase->m_renderingContext.targetResolution = vk::Extent2D().setHeight(2048).setWidth(2048);
     phase->m_renderTargets = createRenderTargets(c, phase->m_renderingContext);
 
     for (auto &group : phase->m_renderGroups)
