@@ -3,6 +3,7 @@
 #include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/core/Exceptions.hpp>
+#include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/core/renderer/EdgeSubmission.hpp>
 
 #include <cassert>
@@ -21,22 +22,190 @@ void TerrainShadowRenderPhase::frameUpdate(star::common::IDeviceContext &c)
     auto &context = static_cast<star::core::device::DeviceContext &>(c);
     const size_t ii = static_cast<size_t>(context.frameTracker().getCurrent().getFrameInFlightIndex());
 
-    // Self-trigger: signal this pass's timeline
-    // semaphore each frame so the command-order service submits it. The shadow
-    // phase currently has no consumers, so nothing else triggers it.
+    // Self-trigger: signal this pass's timeline semaphore each frame so the
+    // command-order service submits it. The shadow phase currently has no
+    // consumers, so nothing else triggers it.
     context.getCmdBus().submit(star::command_order::TriggerPass()
                                    .setTimelineSemaphore(m_timelineSemaphores[ii])
                                    .setSignalValue(context.frameTracker().getCurrent().getNumTimesFrameProcessed() + 1)
                                    .setPass(m_commandBuffer));
 
-    this->DefaultRenderPhase::frameUpdate(c);
+    m_renderTargets.frameUpdate(context, m_renderingContext);
+    updateDependentData(context);
+    RenderPhase::frameUpdate(c);
 }
 
 void TerrainShadowRenderPhase::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
                                                    const star::common::FrameTracker &ft, const uint64_t &frameIndex)
 {
     waitForSemaphore(ft);
-    this->DefaultRenderPhase::recordCommandBuffer(commandBuffer, ft, frameIndex);
+
+    commandBuffer.begin(ft.getCurrent().getFrameInFlightIndex());
+    recordCommands(commandBuffer.buffer(ft.getCurrent().getFrameInFlightIndex()), ft, frameIndex);
+    commandBuffer.buffer(ft.getCurrent().getFrameInFlightIndex()).end();
+}
+
+void TerrainShadowRenderPhase::cleanupRender(star::common::IDeviceContext &context)
+{
+    RenderPhase::cleanupRender(context);
+
+    auto &c = static_cast<star::core::device::DeviceContext &>(context);
+    if (m_globalShaderInfo)
+    {
+        m_globalShaderInfo->cleanupRender(c.getDevice());
+        m_globalShaderInfo.reset();
+    }
+}
+
+void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer,
+                                              const star::common::FrameTracker &frameTracker,
+                                              const uint64_t &frameIndex)
+{
+    vk::Viewport viewport = this->prepareRenderingViewport(m_renderingContext.targetResolution);
+    commandBuffer.setViewport(0, viewport);
+
+    recordPreRenderPassCommands(commandBuffer, frameTracker);
+
+    recordCommandBufferDependencies(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
+
+    {
+        vk::RenderingAttachmentInfo colorAttachments;
+        std::optional<vk::RenderingAttachmentInfo> depthAttachment;
+        if (m_renderTargets.hasColor())
+            colorAttachments = prepareDynamicRenderingInfoColorAttachment(frameTracker);
+        if (m_renderTargets.hasDepth())
+            depthAttachment = prepareDynamicRenderingInfoDepthAttachment(frameTracker);
+
+        auto renderArea = vk::Rect2D{vk::Offset2D{}, m_renderingContext.targetResolution};
+        vk::RenderingInfoKHR renderInfo{};
+        renderInfo.renderArea = renderArea;
+        renderInfo.layerCount = 1;
+        renderInfo.pDepthAttachment = depthAttachment ? &*depthAttachment : nullptr;
+        renderInfo.pColorAttachments = &colorAttachments;
+        renderInfo.colorAttachmentCount = m_renderTargets.hasColor() ? 1 : 0;
+        commandBuffer.beginRendering(renderInfo);
+    }
+
+    recordRenderingCalls(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
+
+    commandBuffer.endRendering();
+
+    recordPostRenderingCalls(commandBuffer, frameTracker);
+}
+
+void TerrainShadowRenderPhase::recordRenderingCalls(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
+                                                    const uint64_t &frameIndex)
+{
+    for (auto &group : m_renderGroups)
+    {
+        if (m_globalShaderInfo)
+        {
+            auto globalSets = m_globalShaderInfo->getDescriptors(frameInFlightIndex);
+            if (!globalSets.empty())
+            {
+                commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, group.getPipelineLayout(), 0,
+                                                 globalSets.size(), globalSets.data(), 0, nullptr);
+            }
+        }
+
+        group.recordRenderPassCommands(commandBuffer, frameInFlightIndex, frameIndex);
+    }
+}
+
+void TerrainShadowRenderPhase::recordCommandBufferDependencies(vk::CommandBuffer &commandBuffer,
+                                                               const uint8_t &frameInFlightIndex,
+                                                               const uint64_t &frameIndex)
+{
+    if (m_barrFunction == nullptr)
+        return;
+
+    size_t barrCount{0};
+    m_barrFunction(frameInFlightIndex, frameIndex, m_frameData.get(), &m_dataRoles, &m_renderingContext,
+                   m_runtimeBarriers.data(), &barrCount);
+
+    commandBuffer.pipelineBarrier2(
+        vk::DependencyInfo().setBufferMemoryBarrierCount(barrCount).setPBufferMemoryBarriers(m_runtimeBarriers.data()));
+}
+
+void TerrainShadowRenderPhase::AddOwnsCameraBarrier(uint8_t frameInFlightIndex, const uint64_t &frameIndex,
+                                                    const star::core::renderer::FrameData *fd, const DataRoles *roles,
+                                                    const star::core::renderer::RenderingContext *rc,
+                                                    vk::BufferMemoryBarrier2 *data, size_t *dCount) noexcept
+{
+    const auto *camera = fd->controller(roles->camera);
+    if (camera->willBeUpdatedThisFrame(frameIndex, frameInFlightIndex))
+    {
+        auto buffer = rc->bufferTransferRecords.get(camera->getHandle(frameInFlightIndex));
+
+        *(data++) = vk::BufferMemoryBarrier2()
+                        .setSrcStageMask(vk::PipelineStageFlagBits2::eTransfer)
+                        .setSrcAccessMask(vk::AccessFlagBits2::eTransferWrite)
+                        .setDstStageMask(vk::PipelineStageFlagBits2::eFragmentShader |
+                                         vk::PipelineStageFlagBits2::eVertexShader)
+                        .setDstAccessMask(vk::AccessFlagBits2::eUniformRead | vk::AccessFlagBits2::eShaderRead)
+                        .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                        .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                        .setBuffer(buffer)
+                        .setSize(vk::WholeSize);
+        (*dCount)++;
+    }
+}
+
+TerrainShadowRenderPhase &TerrainShadowRenderPhase::setDataRolesOwned(star::Handle cameraRole)
+{
+    m_dataRoles = DataRoles{.camera = cameraRole};
+
+    assert(m_frameData && "Frame data needs to be assigned first");
+    assert(m_frameData->isResourceDriven(m_dataRoles.camera) && "owned camera role must be a driven buffer");
+    m_drivesFrameData = true;
+    m_barrFunction = &AddOwnsCameraBarrier;
+
+    return *this;
+}
+
+vk::RenderingAttachmentInfo TerrainShadowRenderPhase::prepareDynamicRenderingInfoColorAttachment(
+    const star::common::FrameTracker &frameTracker)
+{
+    size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+
+    const auto *r = m_renderingContext.recordDependentImage.get(m_renderTargets.colorHandles()[index]);
+
+    vk::RenderingAttachmentInfoKHR colorAttachmentInfo{};
+    colorAttachmentInfo.imageView = r->getImageView();
+    colorAttachmentInfo.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+    colorAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
+    colorAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
+    colorAttachmentInfo.clearValue = vk::ClearValue{vk::ClearValue{std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}}};
+
+    return colorAttachmentInfo;
+}
+
+vk::RenderingAttachmentInfo TerrainShadowRenderPhase::prepareDynamicRenderingInfoDepthAttachment(
+    const star::common::FrameTracker &frameTracker)
+{
+    size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+
+    vk::RenderingAttachmentInfoKHR depthAttachmentInfo{};
+    depthAttachmentInfo.imageView =
+        m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[index])->getImageView();
+    depthAttachmentInfo.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+    depthAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
+    depthAttachmentInfo.storeOp = vk::AttachmentStoreOp::eDontCare;
+    depthAttachmentInfo.clearValue = vk::ClearValue{vk::ClearDepthStencilValue{1.0f}};
+
+    return depthAttachmentInfo;
+}
+
+vk::Viewport TerrainShadowRenderPhase::prepareRenderingViewport(const vk::Extent2D &resolution)
+{
+    vk::Viewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)resolution.width;
+    viewport.height = (float)resolution.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    return viewport;
 }
 
 void TerrainShadowRenderPhase::waitForSemaphore(const star::common::FrameTracker &ft) const
