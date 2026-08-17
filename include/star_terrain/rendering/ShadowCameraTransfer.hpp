@@ -2,15 +2,17 @@
 
 #include <glm/glm.hpp>
 #include <memory>
+#include <starlight/virtual/StarCamera.hpp>
 #include <starlight/virtual/TransferRequest_Buffer.hpp>
 #include <vector>
+
 
 namespace star::terrain::rendering
 {
 class ShadowCameraTransfer : public star::TransferRequest::Buffer
 {
   public:
-    ShadowCameraTransfer(glm::vec3 lightDirection);
+    ShadowCameraTransfer(glm::vec3 lightDirection, star::StarCamera mainRenderCamera);
     virtual ~ShadowCameraTransfer() = default;
     ShadowCameraTransfer(const ShadowCameraTransfer &) = default;
     ShadowCameraTransfer &operator=(const ShadowCameraTransfer &) = default;
@@ -30,6 +32,7 @@ class ShadowCameraTransfer : public star::TransferRequest::Buffer
     {
         glm::mat4 viewProj;
     };
+    star::StarCamera m_mainRenderCamera;
     glm::vec3 m_lightDirection;
 
     ShadowCameraInfo getCameraInfo() const noexcept;

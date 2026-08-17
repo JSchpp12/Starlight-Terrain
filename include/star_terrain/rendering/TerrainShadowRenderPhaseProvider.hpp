@@ -23,7 +23,8 @@ class TerrainShadowRenderPhaseProvider : public star::core::renderer::IRenderPha
   public:
     TerrainShadowRenderPhaseProvider(star::core::device::DeviceContext &context,
                                      std::shared_ptr<std::vector<star::Light>> lights,
-                                     std::vector<std::shared_ptr<star::StarObject>> objects, bool enableShadowCasting,
+                                     std::vector<std::shared_ptr<star::StarObject>> objects,
+                                     star::Handle mainTerrainRenderPhaseRegistration, bool enableShadowCasting,
                                      star::Command_Buffer_Order_Index order);
     virtual ~TerrainShadowRenderPhaseProvider() = default;
     TerrainShadowRenderPhaseProvider(const TerrainShadowRenderPhaseProvider &) = delete;
@@ -38,7 +39,8 @@ class TerrainShadowRenderPhaseProvider : public star::core::renderer::IRenderPha
     star::core::renderer::RenderPhaseConfig m_config;
     std::vector<std::shared_ptr<star::StarObject>> m_objects;
     std::shared_ptr<star::core::renderer::FrameData> m_frameData;
-    std::shared_ptr<std::vector<star::Light>> m_lights; // retained for the upcoming light-tracking controller
+    std::shared_ptr<std::vector<star::Light>> m_lights; // retained for the upcoming light-tracking getController
+    star::Handle m_mainTerrainRenderRegistration;
     bool m_enableShadowCasting = false;
 
     star::core::renderer::RenderTargets createRenderTargets(star::core::device::DeviceContext &ctx,

@@ -51,11 +51,31 @@ static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus
     return handles;
 }
 
+static const star::ManagerController::RenderResource::GlobalInfo *GetMainGlobalInfo(
+    const star::core::renderer::RenderPhaseRegistry &phases, const star::Handle &mainReg) noexcept
+{
+    const auto *mainTerrain = phases.getPhase(mainReg);
+    assert(mainTerrain != nullptr &&
+           "Main terrain render phase provider needs to be supplied to the manager before the terrain shadow render");
+    const auto *mainController = mainTerrain->getFrameData()->getController(
+        star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera));
+    assert(mainController != nullptr);
+
+    const auto *cameraController =
+        dynamic_cast<const star::ManagerController::RenderResource::GlobalInfo *>(mainController);
+    assert(cameraController != nullptr &&
+           "The main renderer is expected to have a GlobalInfo type for its main controller. However, a "
+           "different unsupported type was encountered");
+
+    return cameraController;
+}
+
 static std::shared_ptr<star::core::renderer::FrameData> CreateShadowFrameData(
-    star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights)
+    star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights,
+    const star::ManagerController::RenderResource::GlobalInfo *mainCamController) noexcept
 {
     auto cameraController = std::make_shared<star::terrain::rendering::ShadowCameraController>(
-        context.frameTracker().getSetup().getNumFramesInFlight(), lights, 0);
+        context.frameTracker().getSetup().getNumFramesInFlight(), lights, 0, mainCamController);
     auto fd = std::make_shared<star::core::renderer::FrameData>();
     fd->add(std::move(cameraController), star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera));
     return fd;
@@ -103,9 +123,10 @@ static std::vector<star::StarRenderGroup> CreateRenderingGroups(star::core::devi
 
 TerrainShadowRenderPhaseProvider::TerrainShadowRenderPhaseProvider(
     star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights,
-    std::vector<std::shared_ptr<star::StarObject>> objects, bool enableShadowCasting,
-    star::Command_Buffer_Order_Index order)
-    : m_objects(std::move(objects)), m_frameData(CreateShadowFrameData(context, lights)), m_lights(std::move(lights)),
+    std::vector<std::shared_ptr<star::StarObject>> objects, star::Handle mainTerrainRenderPhaseRegistration,
+    bool enableShadowCasting, star::Command_Buffer_Order_Index order)
+    : m_objects(std::move(objects)), m_lights(std::move(lights)),
+      m_mainTerrainRenderRegistration(std::move(mainTerrainRenderPhaseRegistration)),
       m_enableShadowCasting(enableShadowCasting)
 {
     m_config.order = star::Command_Buffer_Order::before_render_pass;
@@ -160,12 +181,17 @@ star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRend
 }
 
 std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvider::build(
-    star::core::device::DeviceContext &c, star::core::renderer::RenderPhaseRegistry & /*phases*/)
+    star::core::device::DeviceContext &c, star::core::renderer::RenderPhaseRegistry &phases)
 {
-    auto phase = std::make_unique<TerrainShadowRenderPhase>(m_enableShadowCasting);
 
+    auto phase = std::make_unique<TerrainShadowRenderPhase>(m_enableShadowCasting);
     phase->m_objects = std::move(m_objects);
-    phase->m_frameData = m_frameData;
+
+    {
+        const auto *mainCamera = GetMainGlobalInfo(phases, m_mainTerrainRenderRegistration);
+        phase->m_frameData = CreateShadowFrameData(c, m_lights, mainCamera);
+    }
+
     phase->setDataRolesOwned(star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera));
 
     phase->m_renderGroups = CreateRenderingGroups(c, phase->m_objects);

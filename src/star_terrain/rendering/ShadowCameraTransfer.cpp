@@ -4,7 +4,8 @@
 
 namespace star::terrain::rendering
 {
-ShadowCameraTransfer::ShadowCameraTransfer(glm::vec3 lightDirection) : m_lightDirection(std::move(lightDirection))
+ShadowCameraTransfer::ShadowCameraTransfer(glm::vec3 lightDirection, star::StarCamera mainRenderCamera)
+    : m_lightDirection(std::move(lightDirection)), m_mainRenderCamera(std::move(mainRenderCamera))
 {
 }
 

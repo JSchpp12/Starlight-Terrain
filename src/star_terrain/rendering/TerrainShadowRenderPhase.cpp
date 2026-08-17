@@ -70,7 +70,7 @@ void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer,
     }
 
     recordPreRenderPassCommands(commandBuffer, frameTracker);
-    recordCommandBufferDependencies(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
+    recordCommandBufferDependencies(commandBuffer, frameTracker, frameIndex);
 
     {
         vk::RenderingAttachmentInfo colorAttachments;
@@ -111,27 +111,30 @@ void TerrainShadowRenderPhase::recordRenderingCalls(vk::CommandBuffer &commandBu
 }
 
 void TerrainShadowRenderPhase::recordCommandBufferDependencies(vk::CommandBuffer &commandBuffer,
-                                                               const uint8_t &frameInFlightIndex,
+                                                               const star::common::FrameTracker &frameTracker,
                                                                const uint64_t &frameIndex)
 {
     if (m_barrFunction == nullptr)
         return;
 
     size_t barrCount{0};
-    m_barrFunction(frameInFlightIndex, frameIndex, m_frameData.get(), &m_dataRoles, &m_renderingContext,
+    m_barrFunction(frameTracker, frameIndex, m_frameData.get(), &m_dataRoles, &m_renderingContext,
                    m_runtimeBarriers.data(), &barrCount);
 
     commandBuffer.pipelineBarrier2(
         vk::DependencyInfo().setBufferMemoryBarrierCount(barrCount).setPBufferMemoryBarriers(m_runtimeBarriers.data()));
 }
 
-void TerrainShadowRenderPhase::AddOwnsCameraBarrier(uint8_t frameInFlightIndex, const uint64_t &frameIndex,
+void TerrainShadowRenderPhase::AddOwnsCameraBarrier(const star::common::FrameTracker &frameTracker,
+                                                    const uint64_t &frameIndex,
                                                     const star::core::renderer::FrameData *fd, const DataRoles *roles,
                                                     const star::core::renderer::RenderingContext *rc,
                                                     vk::BufferMemoryBarrier2 *data, size_t *dCount) noexcept
 {
-    const auto *camera = fd->controller(roles->camera);
-    if (camera->willBeUpdatedThisFrame(frameIndex, frameInFlightIndex))
+    const uint8_t frameInFlightIndex = frameTracker.getCurrent().getFrameInFlightIndex();
+
+    const auto *camera = fd->getController(roles->camera);
+    if (camera->willBeUpdatedThisFrame(frameIndex, frameTracker))
     {
         auto buffer = rc->bufferTransferRecords.get(camera->getHandle(frameInFlightIndex));
 
