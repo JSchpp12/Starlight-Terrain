@@ -6,7 +6,6 @@
 #include <starlight/virtual/TransferRequest_Buffer.hpp>
 #include <vector>
 
-
 namespace star::terrain::rendering
 {
 class ShadowCameraTransfer : public star::TransferRequest::Buffer
@@ -32,6 +31,7 @@ class ShadowCameraTransfer : public star::TransferRequest::Buffer
     {
         glm::mat4 viewProj;
     };
+
     star::StarCamera m_mainRenderCamera;
     glm::vec3 m_lightDirection;
 
