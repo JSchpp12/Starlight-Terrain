@@ -9,17 +9,14 @@
 #include <star_common/EventBus.hpp>
 #include <star_common/FrameTracker.hpp>
 #include <star_common/Handle.hpp>
-#include <star_common/HandleTypeRegistry.hpp>
-#include <starlight/command/command_order/DeclarePass.hpp>
 #include <starlight/common/controllers/ManagerController_RenderResource_GlobalInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
-#include <starlight/core/device/managers/Semaphore.hpp>
-#include <starlight/core/device/system/event/ManagerRequest.hpp>
 #include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
 #include <starlight/core/helper/queue/QueueHelpers.hpp>
 #include <starlight/core/renderer/DescriptorRecipe.hpp>
 #include <starlight/core/renderer/FrameData.hpp>
+#include <starlight/core/renderer/RenderPhaseHelpers.hpp>
 #include <starlight/event/DescriptorPoolReady.hpp>
 #include <utility>
 #include <vector>
@@ -27,29 +24,6 @@
 
 namespace star::terrain
 {
-
-static std::vector<star::Handle> CreateSemaphores(star::common::EventBus &evtBus,
-                                                  const star::common::FrameTracker &ft) noexcept
-{
-    const size_t num = static_cast<size_t>(ft.getSetup().getNumFramesInFlight());
-
-    auto handles = std::vector<star::Handle>(num);
-    for (size_t i{0}; i < handles.size(); i++)
-    {
-        void *r = nullptr;
-        evtBus.emit(star::core::device::system::event::ManagerRequest(
-            star::common::HandleTypeRegistry::instance().getTypeGuaranteedExist(
-                star::core::device::manager::GetSemaphoreEventTypeName),
-            star::core::device::manager::SemaphoreRequest{true}, handles[i], &r));
-
-        if (r == nullptr)
-        {
-            STAR_THROW("Unable to create new semaphore");
-        }
-    }
-
-    return handles;
-}
 
 static const star::ManagerController::RenderResource::GlobalInfo *GetMainGlobalInfo(
     const star::core::renderer::RenderPhaseRegistry &phases, const star::Handle &mainReg) noexcept
@@ -79,46 +53,6 @@ static std::shared_ptr<star::core::renderer::FrameData> CreateShadowFrameData(
     auto fd = std::make_shared<star::core::renderer::FrameData>();
     fd->add(std::move(cameraController), star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera));
     return fd;
-}
-
-static void RegisterWithCommandOrder(const star::core::CommandBus &cmdBus, star::common::EventBus &evtBus,
-                                     star::core::device::manager::Queue &qm, star::Handle commandBuffer)
-{
-    auto *queue = star::core::helper::GetEngineDefaultQueue(evtBus, qm, star::Queue_Type::Tgraphics);
-    assert(queue != nullptr && "Failed to acquire default engine queue");
-
-    cmdBus.submit(star::command_order::DeclarePass{std::move(commandBuffer), queue->getParentQueueFamilyIndex()});
-}
-
-static std::vector<star::StarRenderGroup> CreateRenderingGroups(star::core::device::DeviceContext &context,
-                                                                std::vector<std::shared_ptr<star::StarObject>> objects)
-{
-    auto renderingGroups = std::vector<star::StarRenderGroup>();
-
-    for (size_t i = 0; i < objects.size(); i++)
-    {
-        star::StarRenderGroup *match = nullptr;
-
-        for (size_t j = 0; j < renderingGroups.size(); j++)
-        {
-            if (renderingGroups[j].isObjectCompatible(*objects[i]))
-            {
-                match = &renderingGroups[j];
-                break;
-            }
-        }
-
-        if (match != nullptr)
-        {
-            match->addObject(objects[i]);
-        }
-        else
-        {
-            renderingGroups.emplace_back(context, objects[i]);
-        }
-    }
-
-    return renderingGroups;
 }
 
 TerrainShadowRenderPhaseProvider::TerrainShadowRenderPhaseProvider(
@@ -184,7 +118,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
     star::core::device::DeviceContext &c, star::core::renderer::RenderPhaseRegistry &phases)
 {
 
-    auto phase = std::make_unique<TerrainShadowRenderPhase>(m_enableShadowCasting);
+    auto phase = std::make_unique<TerrainShadowRenderPhase>(c.getCmdBus(), c.getDevice().getVulkanDevice(), m_enableShadowCasting);
     phase->m_objects = std::move(m_objects);
 
     {
@@ -194,7 +128,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
 
     phase->setDataRolesOwned(star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera));
 
-    phase->m_renderGroups = CreateRenderingGroups(c, phase->m_objects);
+    phase->m_renderGroups = star::core::renderer::CreateRenderingGroups(c, phase->m_objects);
 
     auto request = star::core::device::manager::ManagerCommandBuffer::Request{
         .recordBufferCallback = std::bind(&TerrainShadowRenderPhase::recordCommandBuffer, phase.get(),
@@ -209,8 +143,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
     };
     phase->m_commandBuffer =
         c.getManagerCommandBuffer().submit(std::move(request), c.frameTracker().getCurrent().getGlobalFrameCounter());
-    RegisterWithCommandOrder(c.getCmdBus(), c.getEventBus(), c.getGraphicsManagers().queueManager,
-                             phase->m_commandBuffer);
+    star::core::renderer::RegisterWithCommandOrder(c.getCmdBus(), c.getEventBus(), c.getGraphicsManagers().queueManager,
+                                                   phase->m_commandBuffer);
 
     phase->m_frameData->prepRender(c, c.frameTracker().getSetup().getNumFramesInFlight());
 
@@ -230,11 +164,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
         .setRenderGroups(global, &phase->m_renderGroups, phase->getRenderTargetInfo(), phase->m_commandBuffer)
         .build();
 
-    // Shadow-specific tail: timeline semaphores + cmd-bus/device handles used by
-    // the phase's self-trigger (frameUpdate) and submission override.
-    phase->m_cmdBus = &c.getCmdBus();
-    phase->m_device = c.getDevice().getVulkanDevice();
-    phase->m_timelineSemaphores = CreateSemaphores(c.getEventBus(), c.frameTracker());
+    // Shadow-specific tail: timeline semaphores used by the phase's self-trigger (frameUpdate).
+    phase->m_timelineSemaphores = star::core::renderer::CreateSemaphores(c.getEventBus(), c.frameTracker());
 
     return phase;
 }

@@ -1,19 +1,17 @@
 #include "star_terrain/rendering/TerrainShadowRenderPhase.hpp"
 
-#include <starlight/command/command_order/GetPassInfo.hpp>
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
-#include <starlight/core/renderer/EdgeSubmission.hpp>
+#include <starlight/core/renderer/RenderPhaseHelpers.hpp>
 
 #include <cassert>
-#include <functional>
 #include <vector>
 
 namespace star::terrain
 {
-TerrainShadowRenderPhase::TerrainShadowRenderPhase(bool enableShadowCasting)
-    : m_shadowCastingEnabled(enableShadowCasting)
+TerrainShadowRenderPhase::TerrainShadowRenderPhase(const star::core::CommandBus &cmdBus, vk::Device device, bool enableShadowCasting)
+    : m_shadowCastingEnabled(enableShadowCasting), m_cmdBus(&cmdBus), m_device(device)
 {
 }
 
@@ -38,7 +36,7 @@ void TerrainShadowRenderPhase::frameUpdate(star::common::IDeviceContext &c)
 void TerrainShadowRenderPhase::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
                                                    const star::common::FrameTracker &ft, const uint64_t &frameIndex)
 {
-    waitForSemaphore(ft);
+    star::core::renderer::waitForTimelineSemaphore(*m_cmdBus, m_device, m_commandBuffer, ft);
 
     commandBuffer.begin(ft.getCurrent().getFrameInFlightIndex());
     recordCommands(commandBuffer.buffer(ft.getCurrent().getFrameInFlightIndex()), ft, frameIndex);
@@ -200,52 +198,9 @@ vk::Rect2D TerrainShadowRenderPhase::prepareRenderingScissor(const vk::Extent2D 
     return scissor;
 }
 
-void TerrainShadowRenderPhase::waitForSemaphore(const star::common::FrameTracker &ft) const
-{
-    uint64_t signalValue{0};
-    vk::Semaphore semaphore{VK_NULL_HANDLE};
-    {
-        star::command_order::GetPassInfo get{m_commandBuffer};
-        m_cmdBus->submit(get);
-        signalValue = get.getReply().get().currentSignalValue;
-        semaphore = get.getReply().get().signaledSemaphore;
-    }
-
-    const uint64_t frameCount = ft.getCurrent().getNumTimesFrameProcessed();
-    if (frameCount == signalValue)
-    {
-        assert(m_device != VK_NULL_HANDLE);
-        auto result =
-            m_device.waitSemaphores(vk::SemaphoreWaitInfo().setValues(frameCount).setSemaphores(semaphore), UINT64_MAX);
-
-        if (result != vk::Result::eSuccess)
-            STAR_THROW("Failed to wait for terrain shadow timeline semaphores");
-    }
-}
-
 std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride> TerrainShadowRenderPhase::
     getSubmissionOverride()
 {
-    star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride overrideFn =
-        std::bind(&TerrainShadowRenderPhase::submitBuffer, this, std::placeholders::_1, std::placeholders::_2,
-                  std::placeholders::_3, std::placeholders::_4, std::placeholders::_5, std::placeholders::_6,
-                  std::placeholders::_7);
-    return overrideFn;
-}
-
-vk::Semaphore TerrainShadowRenderPhase::submitBuffer(star::StarCommandBuffer &buffer,
-                                                     const star::common::FrameTracker &frameTracker,
-                                                     std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                                                     std::vector<vk::Semaphore> dataSemaphores,
-                                                     std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                                                     std::vector<std::optional<uint64_t>> previousSignaledValues,
-                                                     star::StarQueue &queue)
-{
-    assert(m_cmdBus != nullptr);
-
-    return star::core::renderer::submitEdgeAwarePass(*m_cmdBus, m_commandBuffer, buffer, frameTracker,
-                                                     previousCommandBufferSemaphores, dataSemaphores, dataWaitPoints,
-                                                     previousSignaledValues, queue,
-                                                     /*signalBinaryCompletion=*/false);
+    return star::core::renderer::makeEdgeAwareSubmissionOverride(m_cmdBus, &m_commandBuffer, false);
 }
 } // namespace star::terrain

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <starlight/core/renderer/RenderPhase.hpp>
+#include <starlight/core/CommandBus.hpp>
 #include <starlight/core/renderer/RenderingContext.hpp>
 #include <starlight/wrappers/graphics/StarShaderInfo.hpp>
 
@@ -24,7 +25,7 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
   public:
     friend class TerrainShadowRenderPhaseProvider;
 
-    explicit TerrainShadowRenderPhase(bool enableShadowCasting);
+    TerrainShadowRenderPhase(const star::core::CommandBus &cmdBus, vk::Device device, bool enableShadowCasting);
     virtual ~TerrainShadowRenderPhase() = default;
 
     TerrainShadowRenderPhase(const TerrainShadowRenderPhase &) = delete;
@@ -86,16 +87,8 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
 
     std::vector<star::Handle> m_timelineSemaphores;
     bool m_shadowCastingEnabled = false;
-    star::core::CommandBus *m_cmdBus{nullptr};
+    const star::core::CommandBus *m_cmdBus{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};
-
-    void waitForSemaphore(const star::common::FrameTracker &ft) const;
-
-    vk::Semaphore submitBuffer(star::StarCommandBuffer &buffer, const star::common::FrameTracker &frameTracker,
-                               std::vector<vk::Semaphore> *previousCommandBufferSemaphores,
-                               std::vector<vk::Semaphore> dataSemaphores,
-                               std::vector<vk::PipelineStageFlags> dataWaitPoints,
-                               std::vector<std::optional<uint64_t>> previousSignaledValues, star::StarQueue &queue);
 
     static void AddOwnsCameraBarrier(const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex,
                                      const star::core::renderer::FrameData *fd, const DataRoles *roles,
