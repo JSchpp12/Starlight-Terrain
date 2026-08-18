@@ -181,7 +181,7 @@ ShadowCameraTransfer::ShadowCameraInfo ShadowCameraTransfer::getCameraInfo() con
     const float viewSphereRadius = GetViewFrustumSphereRadius(corners, center);
     const glm::mat4 lightProj = GetLightViewProj(corners, center, m_lightDirection, viewSphereRadius);
 
-    return ShadowCameraInfo{.viewProj = lightProj};
+    return ShadowCameraInfo{.worldToLightViewProj = lightProj, .worldToShadowMapProj = glm::mat4()};
 }
 
 void ShadowCameraTransfer::writeDataToStageBuffer(StarBuffers::Buffer &buffer) const

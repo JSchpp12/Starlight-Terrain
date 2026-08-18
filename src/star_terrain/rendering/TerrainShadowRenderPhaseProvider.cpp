@@ -3,12 +3,6 @@
 #include "star_terrain/rendering/ShadowCameraController.hpp"
 #include "star_terrain/rendering/TerrainShadowRenderPhase.hpp"
 
-#include <cassert>
-#include <functional>
-#include <memory>
-#include <star_common/EventBus.hpp>
-#include <star_common/FrameTracker.hpp>
-#include <star_common/Handle.hpp>
 #include <starlight/common/controllers/ManagerController_RenderResource_GlobalInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
@@ -18,6 +12,14 @@
 #include <starlight/core/renderer/FrameData.hpp>
 #include <starlight/core/renderer/RenderPhaseHelpers.hpp>
 #include <starlight/event/DescriptorPoolReady.hpp>
+
+#include <star_common/EventBus.hpp>
+#include <star_common/FrameTracker.hpp>
+#include <star_common/Handle.hpp>
+
+#include <cassert>
+#include <functional>
+#include <memory>
 #include <utility>
 #include <vector>
 #include <vulkan/vulkan.hpp>
@@ -118,7 +120,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
     star::core::device::DeviceContext &c, star::core::renderer::RenderPhaseRegistry &phases)
 {
 
-    auto phase = std::make_unique<TerrainShadowRenderPhase>(c.getCmdBus(), c.getDevice().getVulkanDevice(), m_enableShadowCasting);
+    auto phase = std::make_unique<TerrainShadowRenderPhase>(c.getCmdBus(), c.getDevice().getVulkanDevice(),
+                                                            m_enableShadowCasting);
     phase->m_objects = std::move(m_objects);
 
     {

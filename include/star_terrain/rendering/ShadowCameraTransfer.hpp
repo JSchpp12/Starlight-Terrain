@@ -29,7 +29,8 @@ class ShadowCameraTransfer : public star::TransferRequest::Buffer
   private:
     struct ShadowCameraInfo
     {
-        glm::mat4 viewProj;
+        glm::mat4 worldToLightViewProj;
+        glm::mat4 worldToShadowMapProj;
     };
 
     star::StarCamera m_mainRenderCamera;
