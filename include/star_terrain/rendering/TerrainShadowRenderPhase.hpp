@@ -1,13 +1,16 @@
-#pragma once
+﻿#pragma once
 
-#include <starlight/core/renderer/RenderPhase.hpp>
 #include <starlight/core/CommandBus.hpp>
+#include <starlight/core/renderer/RenderPhase.hpp>
 #include <starlight/core/renderer/RenderingContext.hpp>
 #include <starlight/wrappers/graphics/StarShaderInfo.hpp>
 
 #include <star_common/FrameTracker.hpp>
 #include <star_common/Handle.hpp>
 #include <star_common/IDeviceContext.hpp>
+
+#include "star_terrain/rendering/policies/ShadowDepthReacquirePolicy.hpp"
+#include "star_terrain/rendering/policies/ShadowDepthReleasePolicy.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -69,6 +72,9 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
     vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const star::common::FrameTracker &frameTracker);
 
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer &buffer,
+                                             const star::common::FrameTracker &frameTracker) override;
+
     virtual void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
                                 const uint64_t &frameIndex);
     virtual void recordRenderingCalls(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
@@ -89,6 +95,13 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
     bool m_shadowCastingEnabled = false;
     const star::core::CommandBus *m_cmdBus{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};
+
+    uint32_t graphicsQueueFamilyIndex{0};
+    uint32_t computeQueueFamilyIndex{0};
+    rendering::ShadowDepthReleasePolicy m_shadowDepthReleasePolicy{rendering::ShadowDepthSameQueueNoOp{}};
+    rendering::ShadowDepthReacquirePolicy m_shadowDepthReacquirePolicy{rendering::ShadowDepthSameQueueTransitionBack{}};
+    bool m_isFirstPass{true};
+    uint32_t m_firstFramePassCounter{0};
 
     static void AddOwnsCameraBarrier(const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex,
                                      const star::core::renderer::FrameData *fd, const DataRoles *roles,

@@ -1,4 +1,4 @@
-#include "star_terrain/rendering/TerrainShadowRenderPhase.hpp"
+﻿#include "star_terrain/rendering/TerrainShadowRenderPhase.hpp"
 
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/core/Exceptions.hpp>
@@ -10,7 +10,8 @@
 
 namespace star::terrain
 {
-TerrainShadowRenderPhase::TerrainShadowRenderPhase(const star::core::CommandBus &cmdBus, vk::Device device, bool enableShadowCasting)
+TerrainShadowRenderPhase::TerrainShadowRenderPhase(const star::core::CommandBus &cmdBus, vk::Device device,
+                                                   bool enableShadowCasting)
     : m_shadowCastingEnabled(enableShadowCasting), m_cmdBus(&cmdBus), m_device(device)
 {
 }
@@ -55,6 +56,37 @@ void TerrainShadowRenderPhase::cleanupRender(star::common::IDeviceContext &conte
     }
 }
 
+void TerrainShadowRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &buffer,
+                                                            const star::common::FrameTracker &frameTracker)
+{
+    // Preserve the base per-group pre-render-pass commands (the shadow relied on these before
+    // this override was introduced).
+    star::core::renderer::RenderPhase::recordPreRenderPassCommands(buffer, frameTracker);
+
+    // The compute (volume) neighbor leaves the shadow depth in eShaderReadOnlyOptimal after
+    // sampling it. Once it has run (after the first frames-in-flight grace period), reacquire /
+    // transition the depth back to eDepthStencilAttachmentOptimal before beginRendering.
+    if (!m_isFirstPass)
+    {
+        const size_t fi = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+        const vk::Image depthImage =
+            m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[fi])->getVulkanImage();
+
+        vk::ImageMemoryBarrier2 reacquireBarrier{};
+        std::visit([&](auto &p) { p.fillBarrier(depthImage, reacquireBarrier); }, m_shadowDepthReacquirePolicy);
+
+        buffer.pipelineBarrier2(vk::DependencyInfo()
+                                     .setPImageMemoryBarriers(&reacquireBarrier)
+                                     .setImageMemoryBarrierCount(1));
+    }
+
+    if (m_firstFramePassCounter > 0)
+    {
+        m_firstFramePassCounter--;
+        if (m_firstFramePassCounter == 0)
+            m_isFirstPass = false;
+    }
+}
 void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer,
                                               const star::common::FrameTracker &frameTracker,
                                               const uint64_t &frameIndex)
@@ -85,6 +117,23 @@ void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer,
     recordRenderingCalls(commandBuffer, frameTracker.getCurrent().getFrameInFlightIndex(), frameIndex);
 
     commandBuffer.endRendering();
+
+    {
+        const size_t fi = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
+        const vk::Image depthImage =
+            m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[fi])->getVulkanImage();
+
+        vk::ImageMemoryBarrier2 releaseBarrier{};
+        const bool emit = std::visit(
+            [&](auto &p) { return p.fillBarrier(depthImage, releaseBarrier); }, m_shadowDepthReleasePolicy);
+
+        if (emit)
+        {
+            commandBuffer.pipelineBarrier2(vk::DependencyInfo()
+                                                .setPImageMemoryBarriers(&releaseBarrier)
+                                                .setImageMemoryBarrierCount(1));
+        }
+    }
 
     recordPostRenderingCalls(commandBuffer, frameTracker);
 }
@@ -172,7 +221,7 @@ vk::RenderingAttachmentInfo TerrainShadowRenderPhase::prepareDynamicRenderingInf
         m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[index])->getImageView();
     depthAttachmentInfo.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
     depthAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
-    depthAttachmentInfo.storeOp = vk::AttachmentStoreOp::eDontCare;
+    depthAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
     depthAttachmentInfo.clearValue = vk::ClearValue{vk::ClearDepthStencilValue{1.0f}};
 
     return depthAttachmentInfo;

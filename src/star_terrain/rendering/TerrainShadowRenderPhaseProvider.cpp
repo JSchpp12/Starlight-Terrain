@@ -1,9 +1,11 @@
-#include "star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp"
+﻿#include "star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp"
 
+#include "star_terrain/rendering/DataRoles.hpp"
 #include "star_terrain/rendering/ShadowCameraController.hpp"
 #include "star_terrain/rendering/TerrainShadowRenderPhase.hpp"
 
 #include <starlight/common/controllers/ManagerController_RenderResource_GlobalInfo.hpp>
+#include <starlight/common/controllers/ManagerController_RenderResource_InstanceModelInfo.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/core/helper/command_buffer/CommandBufferHelpers.hpp>
@@ -48,12 +50,15 @@ static const star::ManagerController::RenderResource::GlobalInfo *GetMainGlobalI
 
 static std::shared_ptr<star::core::renderer::FrameData> CreateShadowFrameData(
     star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights,
-    const star::ManagerController::RenderResource::GlobalInfo *mainCamController) noexcept
+    const star::ManagerController::RenderResource::GlobalInfo *mainCamController,
+    const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController) noexcept
 {
     auto cameraController = std::make_shared<star::terrain::rendering::ShadowCameraController>(
-        context.frameTracker().getSetup().getNumFramesInFlight(), lights, 0, mainCamController);
+        context.frameTracker().getSetup().getNumFramesInFlight(), lights, 0, mainCamController,
+        instanceModelInfoController);
     auto fd = std::make_shared<star::core::renderer::FrameData>();
-    fd->add(std::move(cameraController), star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera));
+    fd->add(std::move(cameraController),
+            star::core::renderer::roleHandle(star::terrain::rendering::data_roles::ShadowLightProjections));
     return fd;
 }
 
@@ -92,7 +97,7 @@ star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRend
 
         vk::ImageMemoryBarrier2 barrier[1]{vk::ImageMemoryBarrier2()
                                                .setOldLayout(vk::ImageLayout::eUndefined)
-                                               .setNewLayout(vk::ImageLayout::eDepthAttachmentOptimal)
+                                               .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
                                                .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
                                                .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
                                                .setImage(tx.getVulkanImage())
@@ -119,19 +124,35 @@ star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRend
 std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvider::build(
     star::core::device::DeviceContext &c, star::core::renderer::RenderPhaseRegistry &phases)
 {
-
+    const auto shadowLightProjDataRole =
+        star::core::renderer::roleHandle(star::terrain::rendering::data_roles::ShadowLightProjections);
     auto phase = std::make_unique<TerrainShadowRenderPhase>(c.getCmdBus(), c.getDevice().getVulkanDevice(),
                                                             m_enableShadowCasting);
     phase->m_objects = std::move(m_objects);
 
     {
+        assert(!phase->m_objects.empty() && "Shadow-cast terrain must always be provided");
         const auto *mainCamera = GetMainGlobalInfo(phases, m_mainTerrainRenderRegistration);
-        phase->m_frameData = CreateShadowFrameData(c, m_lights, mainCamera);
+        auto *instanceModel = &phase->m_objects.front()->getInstanceModelController();
+        phase->m_frameData = CreateShadowFrameData(c, m_lights, mainCamera, instanceModel);
     }
 
-    phase->setDataRolesOwned(star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera));
-
+    phase->setDataRolesOwned(shadowLightProjDataRole);
     phase->m_renderGroups = star::core::renderer::CreateRenderingGroups(c, phase->m_objects);
+
+    phase->graphicsQueueFamilyIndex =
+        star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
+                                                   star::Queue_Type::Tgraphics)
+            ->getParentQueueFamilyIndex();
+    phase->computeQueueFamilyIndex =
+        star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
+                                                   star::Queue_Type::Tcompute)
+            ->getParentQueueFamilyIndex();
+    phase->m_shadowDepthReleasePolicy = star::terrain::rendering::makeShadowDepthReleasePolicy(
+        phase->graphicsQueueFamilyIndex, phase->computeQueueFamilyIndex);
+    phase->m_firstFramePassCounter = static_cast<uint32_t>(c.frameTracker().getSetup().getNumFramesInFlight());
+    phase->m_shadowDepthReacquirePolicy = star::terrain::rendering::makeShadowDepthReacquirePolicy(
+        phase->graphicsQueueFamilyIndex, phase->computeQueueFamilyIndex);
 
     auto request = star::core::device::manager::ManagerCommandBuffer::Request{
         .recordBufferCallback = std::bind(&TerrainShadowRenderPhase::recordCommandBuffer, phase.get(),
@@ -161,9 +182,8 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
     star::core::renderer::DescriptorRecipe::Builder(c.getEventBus(), c,
                                                     star::event::DescriptorPoolReady::GetUniqueTypeName())
         .setShaderInfoOut(global, &phase->m_globalShaderInfo)
-        .addBinding(global, 0, phase->m_frameData,
-                    star::core::renderer::roleHandle(star::core::renderer::frame_roles::Camera), 0,
-                    vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eAll)
+        .addBinding(global, 0, phase->m_frameData, shadowLightProjDataRole, 0, vk::DescriptorType::eUniformBuffer,
+                    vk::ShaderStageFlagBits::eAll)
         .setRenderGroups(global, &phase->m_renderGroups, phase->getRenderTargetInfo(), phase->m_commandBuffer)
         .build();
 

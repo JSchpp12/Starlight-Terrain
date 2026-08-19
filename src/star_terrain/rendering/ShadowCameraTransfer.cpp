@@ -16,7 +16,7 @@ ShadowCameraTransfer::ShadowCameraTransfer(glm::vec3 lightDirection, star::StarC
 std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createStagingBuffer(vk::Device &device,
                                                                                VmaAllocator &allocator) const
 {
-    constexpr vk::DeviceSize size = sizeof(glm::mat4);
+    constexpr vk::DeviceSize size = sizeof(ShadowCameraInfo);
 
     return StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(
@@ -37,7 +37,7 @@ std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createStagingBuffer(v
 std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createFinal(
     vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
-    constexpr vk::DeviceSize size = sizeof(glm::mat4);
+    constexpr vk::DeviceSize size = sizeof(ShadowCameraInfo);
 
     return StarBuffers::Buffer::Builder(allocator)
         .setAllocationCreateInfo(

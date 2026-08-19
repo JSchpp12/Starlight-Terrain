@@ -32,6 +32,8 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/TerrainChunk.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/TerrainDataset.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/TerrainTransform.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/policies/ShadowDepthReleasePolicy.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/policies/ShadowDepthReacquirePolicy.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainRenderingType.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObjectDefinition.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainGeometryDefinition.hpp
@@ -60,6 +62,8 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainDataset.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainTransform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainObject.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/policies/ShadowDepthReleasePolicy.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/policies/ShadowDepthReacquirePolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainGeometryDefinition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhaseProvider.cpp
