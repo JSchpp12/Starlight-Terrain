@@ -6,9 +6,6 @@
 
 namespace star::terrain::rendering
 {
-// Reverse (compute -> shadow): reacquire the depth back for rendering next frame.
-// Emitted in the shadow Pre (TerrainShadowRenderPhase::recordPreRenderPassCommands),
-// guarded by "compute neighbor ran before".
 struct ShadowDepthOwnershipReacquire
 {
     uint32_t graphicsQueueFamilyIndex;

@@ -6,8 +6,6 @@
 
 namespace star::terrain::rendering
 {
-// Forward (shadow -> compute): release the depth for the volume to sample.
-// Emitted in the shadow Post (TerrainShadowRenderPhase::recordCommands).
 struct ShadowDepthOwnershipRelease
 {
     uint32_t graphicsQueueFamilyIndex;
