@@ -57,7 +57,7 @@ void TerrainShadowRenderPhase::cleanupRender(star::common::IDeviceContext &conte
 }
 
 void TerrainShadowRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &buffer,
-                                                            const star::common::FrameTracker &frameTracker)
+                                                           const star::common::FrameTracker &frameTracker)
 {
     // Preserve the base per-group pre-render-pass commands (the shadow relied on these before
     // this override was introduced).
@@ -75,9 +75,8 @@ void TerrainShadowRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &bu
         vk::ImageMemoryBarrier2 reacquireBarrier{};
         std::visit([&](auto &p) { p.fillBarrier(depthImage, reacquireBarrier); }, m_shadowDepthReacquirePolicy);
 
-        buffer.pipelineBarrier2(vk::DependencyInfo()
-                                     .setPImageMemoryBarriers(&reacquireBarrier)
-                                     .setImageMemoryBarrierCount(1));
+        buffer.pipelineBarrier2(
+            vk::DependencyInfo().setPImageMemoryBarriers(&reacquireBarrier).setImageMemoryBarrierCount(1));
     }
 
     if (m_firstFramePassCounter > 0)
@@ -98,6 +97,7 @@ void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer,
         const vk::Rect2D scissor = this->prepareRenderingScissor(m_renderingContext.targetResolution);
         commandBuffer.setScissor(0, scissor);
     }
+    commandBuffer.setCullMode(vk::CullModeFlagBits::eFront);
 
     recordPreRenderPassCommands(commandBuffer, frameTracker);
     recordCommandBufferDependencies(commandBuffer, frameTracker, frameIndex);
@@ -124,14 +124,13 @@ void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer,
             m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[fi])->getVulkanImage();
 
         vk::ImageMemoryBarrier2 releaseBarrier{};
-        const bool emit = std::visit(
-            [&](auto &p) { return p.fillBarrier(depthImage, releaseBarrier); }, m_shadowDepthReleasePolicy);
+        const bool emit =
+            std::visit([&](auto &p) { return p.fillBarrier(depthImage, releaseBarrier); }, m_shadowDepthReleasePolicy);
 
         if (emit)
         {
-            commandBuffer.pipelineBarrier2(vk::DependencyInfo()
-                                                .setPImageMemoryBarriers(&releaseBarrier)
-                                                .setImageMemoryBarrierCount(1));
+            commandBuffer.pipelineBarrier2(
+                vk::DependencyInfo().setPImageMemoryBarriers(&releaseBarrier).setImageMemoryBarrierCount(1));
         }
     }
 

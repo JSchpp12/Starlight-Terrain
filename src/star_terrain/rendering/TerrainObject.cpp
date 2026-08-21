@@ -41,7 +41,7 @@ star::PipelineProvider TerrainObject::getPipelineProvider(vk::PipelineLayout pip
             .dynamicStates =
                 m_def.colorMode == ColoringMode::greyscale
                     ? std::vector<vk::DynamicState>{vk::DynamicState::eScissor, vk::DynamicState::eViewport,
-                                                    vk::DynamicState::eLineWidth}
+                                                    vk::DynamicState::eLineWidth, vk::DynamicState::eCullMode}
                     : std::vector<vk::DynamicState>()});
 }
 
