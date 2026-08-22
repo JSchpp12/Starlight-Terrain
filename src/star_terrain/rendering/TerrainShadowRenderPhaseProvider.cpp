@@ -75,12 +75,89 @@ TerrainShadowRenderPhaseProvider::TerrainShadowRenderPhaseProvider(
     m_config.waitStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
 }
 
+static vk::Format selectFormat(core::device::DeviceContext &device, const std::vector<vk::Format> &candidates,
+                               vk::FormatFeatureFlags features)
+{
+    vk::Format selected = vk::Format();
+    if (!device.getDevice().findSupportedFormat(candidates, vk::ImageTiling::eOptimal, features, selected))
+        STAR_THROW("RenderTargets: failed to find a supported format for the requested features");
+    return selected;
+}
+
+static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device::DeviceContext &context,
+                                                                    const size_t numToCreate, int width, int height)
+{
+    const auto &props = context.getDevice().getPhysicalDevice().getProperties();
+
+    vk::Format depthFormat = vk::Format::eUndefined;
+    std::vector<StarTextures::Texture> depthTextures;
+    depthTextures.reserve(numToCreate);
+    {
+        depthFormat =
+            selectFormat(context, {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
+                         vk::FormatFeatureFlagBits::eDepthStencilAttachment | vk::FormatFeatureFlagBits::eSampledImage);
+
+        auto builder =
+            star::StarTextures::Texture::Builder(context.getDevice().getVulkanDevice(),
+                                                 context.getDevice().getAllocator().get())
+                .setCreateInfo(
+                    Allocator::AllocationBuilder()
+                        .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                        .setUsage(VMA_MEMORY_USAGE_GPU_ONLY)
+                        .build(),
+                    vk::ImageCreateInfo()
+                        .setExtent(vk::Extent3D().setWidth(width).setHeight(height).setDepth(1))
+                        .setArrayLayers(1)
+                        .setSharingMode(vk::SharingMode::eExclusive)
+                        .setUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled)
+                        .setImageType(vk::ImageType::e2D)
+                        .setMipLevels(1)
+                        .setTiling(vk::ImageTiling::eOptimal)
+                        .setInitialLayout(vk::ImageLayout::eUndefined)
+                        .setSamples(vk::SampleCountFlagBits::e1),
+                    "OffscreenRenderToImagesDepth")
+                .setBaseFormat(depthFormat)
+                .addViewInfo(vk::ImageViewCreateInfo()
+                                 .setViewType(vk::ImageViewType::e2D)
+                                 .setFormat(depthFormat)
+                                 .setSubresourceRange(vk::ImageSubresourceRange()
+                                                          .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                                          .setBaseArrayLayer(0)
+                                                          .setLayerCount(1)
+                                                          .setBaseMipLevel(0)
+                                                          .setLevelCount(1)))
+                .setSamplerInfo(vk::SamplerCreateInfo()
+                                    .setAnisotropyEnable(true)
+                                    .setMaxAnisotropy(star::StarTextures::Texture::SelectAnisotropyLevel(props))
+                                    .setMagFilter(vk::Filter::eLinear)
+                                    .setMinFilter(vk::Filter::eLinear)
+                                    .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                                    .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                                    .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+                                    .setBorderColor(vk::BorderColor::eIntOpaqueWhite)
+                                    .setUnnormalizedCoordinates(vk::False)
+                                    .setCompareEnable(vk::True)
+                                    .setCompareOp(vk::CompareOp::eLessOrEqual)
+                                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                                    .setMipLodBias(0.0f)
+                                    .setMinLod(0.0f)
+                                    .setMaxLod(0.0f));
+
+        for (uint8_t i = 0; i < numToCreate; i++)
+        {
+            depthTextures.push_back(builder.build());
+        }
+    }
+
+    return depthTextures;
+}
+
 star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRenderTargets(
     star::core::device::DeviceContext &ctx, star::core::renderer::RenderingContext &renderingContext)
 {
-    auto depthTextures = star::core::renderer::RenderTargets::createDefaultDepthAttachments(
-        ctx, static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
-        renderingContext.targetResolution.width, renderingContext.targetResolution.height);
+    auto depthTextures =
+        CreateShadowDepthTextures(ctx, static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
+                                  renderingContext.targetResolution.width, renderingContext.targetResolution.height);
 
     auto *graphicsQueue = star::core::helper::GetEngineDefaultQueue(
         ctx.getEventBus(), ctx.getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
@@ -142,11 +219,11 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
 
     phase->graphicsQueueFamilyIndex =
         star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
-                                                   star::Queue_Type::Tgraphics)
+                                                  star::Queue_Type::Tgraphics)
             ->getParentQueueFamilyIndex();
     phase->computeQueueFamilyIndex =
         star::core::helper::GetEngineDefaultQueue(c.getEventBus(), c.getGraphicsManagers().queueManager,
-                                                   star::Queue_Type::Tcompute)
+                                                  star::Queue_Type::Tcompute)
             ->getParentQueueFamilyIndex();
     phase->m_shadowDepthReleasePolicy = star::terrain::rendering::makeShadowDepthReleasePolicy(
         phase->graphicsQueueFamilyIndex, phase->computeQueueFamilyIndex);
@@ -171,7 +248,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
                                                    phase->m_commandBuffer);
 
     phase->m_frameData->prepRender(c, c.frameTracker().getSetup().getNumFramesInFlight());
-
     phase->m_renderingContext.targetResolution = vk::Extent2D().setHeight(2048).setWidth(2048);
     phase->m_renderTargets = createRenderTargets(c, phase->m_renderingContext);
 
@@ -186,7 +262,6 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
                     vk::ShaderStageFlagBits::eAll)
         .setRenderGroups(global, &phase->m_renderGroups, phase->getRenderTargetInfo(), phase->m_commandBuffer)
         .build();
-
     // Shadow-specific tail: timeline semaphores used by the phase's self-trigger (frameUpdate).
     phase->m_timelineSemaphores = star::core::renderer::CreateSemaphores(c.getEventBus(), c.frameTracker());
 
