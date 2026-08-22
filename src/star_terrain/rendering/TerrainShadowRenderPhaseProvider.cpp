@@ -159,40 +159,38 @@ star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRend
         CreateShadowDepthTextures(ctx, static_cast<size_t>(ctx.frameTracker().getSetup().getNumFramesInFlight()),
                                   renderingContext.targetResolution.width, renderingContext.targetResolution.height);
 
-    auto *graphicsQueue = star::core::helper::GetEngineDefaultQueue(
-        ctx.getEventBus(), ctx.getGraphicsManagers().queueManager, star::Queue_Type::Tpresent);
-    assert(graphicsQueue != nullptr);
-
     auto depthHandles = star::core::renderer::RenderTargets::registerTextures(ctx, renderingContext, depthTextures);
 
+    std::vector<vk::ImageMemoryBarrier2> depthBarriers;
+    depthBarriers.reserve(depthHandles.size());
     for (const auto &th : depthHandles)
     {
         const auto &tx = ctx.getGraphicsManagers().imageManager.get(th)->texture;
 
-        auto oneTimeSetup = star::core::helper::BeginSingleTimeCommands(
-            ctx.getDevice(), ctx.getEventBus(), ctx.getManagerCommandBuffer().m_manager, star::Queue_Type::Tgraphics);
-
-        vk::ImageMemoryBarrier2 barrier[1]{vk::ImageMemoryBarrier2()
-                                               .setOldLayout(vk::ImageLayout::eUndefined)
-                                               .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-                                               .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
-                                               .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-                                               .setImage(tx.getVulkanImage())
-                                               .setSrcAccessMask(vk::AccessFlagBits2::eNone)
-                                               .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
-                                               .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead |
-                                                                 vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
-                                               .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
-                                               .setSubresourceRange(vk::ImageSubresourceRange()
-                                                                        .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                                                                        .setBaseMipLevel(0)
-                                                                        .setLevelCount(vk::RemainingMipLevels)
-                                                                        .setBaseArrayLayer(0)
-                                                                        .setLayerCount(vk::RemainingArrayLayers))};
-
-        oneTimeSetup.buffer().pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(barrier));
-        star::core::helper::EndSingleTimeCommands(*graphicsQueue, std::move(oneTimeSetup));
+        depthBarriers.push_back(vk::ImageMemoryBarrier2()
+                                    .setOldLayout(vk::ImageLayout::eUndefined)
+                                    .setNewLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+                                    .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                    .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+                                    .setImage(tx.getVulkanImage())
+                                    .setSrcAccessMask(vk::AccessFlagBits2::eNone)
+                                    .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+                                    .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead |
+                                                      vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
+                                    .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
+                                    .setSubresourceRange(vk::ImageSubresourceRange()
+                                                             .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                                             .setBaseMipLevel(0)
+                                                             .setLevelCount(vk::RemainingMipLevels)
+                                                             .setBaseArrayLayer(0)
+                                                             .setLayerCount(vk::RemainingArrayLayers)));
     }
+
+    star::core::helper::command_buffer::SingleTimeCommands(ctx, star::Queue_Type::Tgraphics,
+                                           [&](vk::CommandBuffer cmd) {
+                                               cmd.pipelineBarrier2(
+                                                   vk::DependencyInfo().setImageMemoryBarriers(depthBarriers));
+                                           });
 
     return star::core::renderer::RenderTargets({}, std::nullopt, std::move(depthHandles),
                                                depthTextures.front().getBaseFormat());
