@@ -24,6 +24,7 @@ class ShadowCasterInfo
 
     ShadowCasterInfo(const star::StarCamera &worldCamera, const glm::vec3 &shadowLightDirection);
     FrustumCornerInfo getMainCameraFrustumInfo() const noexcept;
+    FrustumCornerInfo getLightCameraFrustumInfo() const noexcept;
     void transformToLightSpace(FrustumCornerInfo &workingInfo) const noexcept;
     glm::mat4 getShadowLightProjection() const noexcept;
 

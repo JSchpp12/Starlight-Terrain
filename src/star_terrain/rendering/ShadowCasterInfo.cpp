@@ -40,6 +40,13 @@ static float GetViewFrustumSphereRadius(const std::array<glm::vec3, 8> &corners,
     return radius;
 }
 
+ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getLightCameraFrustumInfo() const noexcept
+{
+    auto info = getMainCameraFrustumInfo();
+    transformToLightSpace(info);
+    return info;
+}
+
 ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getMainCameraFrustumInfo() const noexcept
 {
     FrustumCornerInfo info{
