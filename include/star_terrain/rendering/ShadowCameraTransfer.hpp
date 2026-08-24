@@ -18,12 +18,10 @@ class ShadowCameraTransfer : public star::TransferRequest::Buffer
     ShadowCameraTransfer(ShadowCameraTransfer &&) = default;
     ShadowCameraTransfer &operator=(ShadowCameraTransfer &&) = default;
 
-    std::unique_ptr<StarBuffers::Buffer> createStagingBuffer(vk::Device &device,
-                                                             VmaAllocator &allocator) const override;
+    std::unique_ptr<StarBuffers::Buffer> createStagingBuffer(star::core::device::StarDevice &device) const override;
 
     std::unique_ptr<StarBuffers::Buffer> createFinal(
-        vk::Device &device, VmaAllocator &allocator,
-        const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
+        star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const override;
     virtual void writeDataToStageBuffer(StarBuffers::Buffer &buffer) const override;
 
   private:

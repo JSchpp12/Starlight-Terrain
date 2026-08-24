@@ -1,4 +1,4 @@
-﻿#include "star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp"
+#include "star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp"
 
 #include "star_terrain/rendering/DataRoles.hpp"
 #include "star_terrain/rendering/ShadowCameraController.hpp"
@@ -98,8 +98,7 @@ static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device
                          vk::FormatFeatureFlagBits::eDepthStencilAttachment | vk::FormatFeatureFlagBits::eSampledImage);
 
         auto builder =
-            star::StarTextures::Texture::Builder(context.getDevice().getVulkanDevice(),
-                                                 context.getDevice().getAllocator().get())
+            star::StarTextures::Texture::Builder(context.getDevice())
                 .setCreateInfo(
                     Allocator::AllocationBuilder()
                         .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
@@ -152,6 +151,64 @@ static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device
     return depthTextures;
 }
 
+//
+// Non-compare (raw) sibling textures over the same shadow depth images created
+// by CreateShadowDepthTextures. The compare textures carry a compare sampler
+// (compareEnable=true) suitable for PCF shadow tests. These raw siblings carry a
+// non-compare sampler so consumers can read raw shadow depth via texelFetch.
+// They are built over the existing vk::Image via Texture::Builder(device, image),
+// so they do NOT own the image/allocation -- only their own view + sampler.
+//
+static std::vector<StarTextures::Texture> CreateRawShadowDepthTextures(
+    core::device::DeviceContext &context, const std::vector<StarTextures::Texture> &compareTextures, const int width,
+    const int height, const vk::Format depthFormat)
+{
+    std::vector<StarTextures::Texture> rawTextures;
+    rawTextures.reserve(compareTextures.size());
+
+    const vk::Extent3D extent = vk::Extent3D().setWidth(width).setHeight(height).setDepth(1);
+    const vk::DeviceSize size = StarTextures::Texture::CalculateSize(depthFormat, extent, 1, vk::ImageType::e2D, 1);
+
+    for (const auto &compareTexture : compareTextures)
+    {
+        const vk::Image image = compareTexture.getVulkanImage();
+
+        auto rawTexture = star::StarTextures::Texture::Builder(context.getDevice(), image)
+                              .setBaseFormat(depthFormat)
+                              .addViewInfo(vk::ImageViewCreateInfo()
+                                               .setViewType(vk::ImageViewType::e2D)
+                                               .setFormat(depthFormat)
+                                               .setSubresourceRange(vk::ImageSubresourceRange()
+                                                                        .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                                                        .setBaseArrayLayer(0)
+                                                                        .setLayerCount(1)
+                                                                        .setBaseMipLevel(0)
+                                                                        .setLevelCount(1)))
+                              .setSamplerInfo(vk::SamplerCreateInfo()
+                                                  .setAnisotropyEnable(VK_FALSE)
+                                                  .setMaxAnisotropy(1.0f)
+                                                  .setMagFilter(vk::Filter::eLinear)
+                                                  .setMinFilter(vk::Filter::eLinear)
+                                                  .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                                                  .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                                                  .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+                                                  .setBorderColor(vk::BorderColor::eIntOpaqueWhite)
+                                                  .setUnnormalizedCoordinates(VK_FALSE)
+                                                  .setCompareEnable(VK_FALSE)
+                                                  .setCompareOp(vk::CompareOp::eAlways)
+                                                  .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                                                  .setMipLodBias(0.0f)
+                                                  .setMinLod(0.0f)
+                                                  .setMaxLod(0.0f))
+                              .setSizeInfo(size, extent)
+                              .build();
+
+        rawTextures.push_back(std::move(rawTexture));
+    }
+
+    return rawTextures;
+}
+
 star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRenderTargets(
     star::core::device::DeviceContext &ctx, star::core::renderer::RenderingContext &renderingContext)
 {
@@ -160,6 +217,15 @@ star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRend
                                   renderingContext.targetResolution.width, renderingContext.targetResolution.height);
 
     auto depthHandles = star::core::renderer::RenderTargets::registerTextures(ctx, renderingContext, depthTextures);
+
+    const vk::Format depthFormat = depthTextures.front().getBaseFormat();
+
+    // Build non-compare (raw) sibling textures over the same shadow depth images
+    // and register them. These expose the shadow depth for raw reads (texelFetch)
+    // via rawDepthHandles(), separate from the compare-sampler depthHandles().
+    auto rawDepthTextures = CreateRawShadowDepthTextures(ctx, depthTextures, renderingContext.targetResolution.width,
+                                                         renderingContext.targetResolution.height, depthFormat);
+    m_rawDepthHandles = star::core::renderer::RenderTargets::registerTextures(ctx, renderingContext, rawDepthTextures);
 
     std::vector<vk::ImageMemoryBarrier2> depthBarriers;
     depthBarriers.reserve(depthHandles.size());
@@ -186,14 +252,12 @@ star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRend
                                                              .setLayerCount(vk::RemainingArrayLayers)));
     }
 
-    star::core::helper::command_buffer::SingleTimeCommands(ctx, star::Queue_Type::Tgraphics,
-                                           [&](vk::CommandBuffer cmd) {
-                                               cmd.pipelineBarrier2(
-                                                   vk::DependencyInfo().setImageMemoryBarriers(depthBarriers));
-                                           });
+    star::core::helper::command_buffer::SingleTimeCommands(
+        ctx, star::Queue_Type::Tgraphics, [&](vk::CommandBuffer cmd) {
+            cmd.pipelineBarrier2(vk::DependencyInfo().setImageMemoryBarriers(depthBarriers));
+        });
 
-    return star::core::renderer::RenderTargets({}, std::nullopt, std::move(depthHandles),
-                                               depthTextures.front().getBaseFormat());
+    return star::core::renderer::RenderTargets({}, std::nullopt, std::move(depthHandles), depthFormat);
 }
 
 std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvider::build(
@@ -248,6 +312,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
     phase->m_frameData->prepRender(c, c.frameTracker().getSetup().getNumFramesInFlight());
     phase->m_renderingContext.targetResolution = vk::Extent2D().setHeight(2048).setWidth(2048);
     phase->m_renderTargets = createRenderTargets(c, phase->m_renderingContext);
+    phase->m_rawDepthHandles = std::move(m_rawDepthHandles);
 
     for (auto &group : phase->m_renderGroups)
         group.prepRender(c);

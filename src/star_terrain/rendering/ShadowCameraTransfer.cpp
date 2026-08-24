@@ -15,12 +15,12 @@ ShadowCameraTransfer::ShadowCameraTransfer(glm::vec3 lightDirection, star::StarC
 {
 }
 
-std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createStagingBuffer(vk::Device &device,
-                                                                               VmaAllocator &allocator) const
+std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createStagingBuffer(
+    star::core::device::StarDevice &device) const
 {
     constexpr vk::DeviceSize size = sizeof(ShadowCameraInfo);
 
-    return StarBuffers::Buffer::Builder(allocator)
+    return StarBuffers::Buffer::Builder(device.getAllocator().get())
         .setAllocationCreateInfo(
             Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT)
@@ -37,11 +37,11 @@ std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createStagingBuffer(v
 }
 
 std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createFinal(
-    vk::Device &device, VmaAllocator &allocator, const std::vector<uint32_t> &transferQueueFamilyIndex) const
+    star::core::device::StarDevice &device, const std::vector<uint32_t> &transferQueueFamilyIndex) const
 {
     constexpr vk::DeviceSize size = sizeof(ShadowCameraInfo);
 
-    return StarBuffers::Buffer::Builder(allocator)
+    return StarBuffers::Buffer::Builder(device.getAllocator().get())
         .setAllocationCreateInfo(
             Allocator::AllocationBuilder()
                 .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)

@@ -41,6 +41,7 @@ class TerrainShadowRenderPhaseProvider : public star::core::renderer::IRenderPha
     std::shared_ptr<star::core::renderer::FrameData> m_frameData;
     std::shared_ptr<std::vector<star::Light>> m_lights; // retained for the upcoming light-tracking getController
     star::Handle m_mainTerrainRenderRegistration;
+    std::vector<star::Handle> m_rawDepthHandles;
     bool m_enableShadowCasting = false;
 
     star::core::renderer::RenderTargets createRenderTargets(star::core::device::DeviceContext &ctx,

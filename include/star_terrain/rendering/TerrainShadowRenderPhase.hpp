@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <starlight/core/CommandBus.hpp>
 #include <starlight/core/renderer/RenderPhase.hpp>
@@ -48,6 +48,10 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
     {
         return m_timelineSemaphores;
     }
+    const std::vector<star::Handle> &rawDepthHandles() const
+    {
+        return m_rawDepthHandles;
+    }
     void setShadowCastingEnabled(bool value)
     {
         m_shadowCastingEnabled = value;
@@ -92,6 +96,7 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
     OwningBarrierFunction m_barrFunction{nullptr};
 
     std::vector<star::Handle> m_timelineSemaphores;
+    std::vector<star::Handle> m_rawDepthHandles;
     bool m_shadowCastingEnabled = false;
     const star::core::CommandBus *m_cmdBus{nullptr};
     vk::Device m_device{VK_NULL_HANDLE};

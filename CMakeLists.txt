@@ -86,9 +86,9 @@ add_library(${PROJECT_NAME} ${LIBTYPE}
     ${${PROJECT_NAME}_SOURCES}
 )
 
-if(COMMAND star_add_pch)
-    star_add_pch(${PROJECT_NAME})
-endif()
+# if(COMMAND star_add_pch)
+#     star_add_pch(${PROJECT_NAME})
+# endif()
 
 # Shared, generated precompiled header (GDAL).
 # Other targets add their own PCH from the same generated source via:
