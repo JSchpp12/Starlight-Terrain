@@ -66,20 +66,21 @@ ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getMainCameraFrustumInfo()
     return info;
 }
 
-// glm::lookAt computes normalize(cross(forward, up)). If the light direction is (anti)parallel to the up vector that
-// cross product is zero and the resulting matrix is NaN.
+// glm::lookAt computes normalize(cross(forward, up)). Just pick the normal up direction for anything that is not
+// directly down
 static glm::vec3 PickLightUpDirection(const glm::vec3 &lightDirection) noexcept
 {
-    const glm::vec3 a = glm::abs(lightDirection);
-    glm::vec3 up{0.0f, 1.0f, 0.0f};
-    if (a.x <= a.y && a.x <= a.z)
-        up = glm::vec3{1.0f, 0.0f, 0.0f};
-    else if (a.y <= a.x && a.y <= a.z)
-        up = glm::vec3{0.0f, 1.0f, 0.0f};
-    else
-        up = glm::vec3{0.0f, 0.0f, 1.0f};
+    constexpr glm::vec3 kWorldUp{0.0f, 1.0f, 0.0f};
+    const glm::vec3 dir = glm::normalize(lightDirection);
 
-    return up;
+    if (glm::abs(glm::dot(dir, kWorldUp)) > 0.999f)
+    {
+        // Light points straight down/up: pick a horizontal axis so the shadow frustum's right/up axes line up with
+        // world X/Z instead of getting swapped.
+        return glm::vec3{0.0f, 0.0f, -1.0f};
+    }
+
+    return kWorldUp;
 }
 
 static glm::mat4 GetLightView(const glm::vec3 &frustumCenter, const glm::vec3 &lightDirection,
