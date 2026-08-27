@@ -321,7 +321,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
     star::core::renderer::DescriptorRecipe::Builder(c.getEventBus(), c,
                                                     star::event::DescriptorPoolReady::GetUniqueTypeName())
         .setShaderInfoOut(global, &phase->m_globalShaderInfo)
-        .addBinding(global, 0, phase->m_frameData, shadowLightProjDataRole, 0, vk::DescriptorType::eUniformBuffer,
+        .addBinding(phase->m_frameData, 0, 0, shadowLightProjDataRole, vk::DescriptorType::eUniformBuffer,
                     vk::ShaderStageFlagBits::eAll)
         .setRenderGroups(global, &phase->m_renderGroups, phase->getRenderTargetInfo(), phase->m_commandBuffer)
         .build();
