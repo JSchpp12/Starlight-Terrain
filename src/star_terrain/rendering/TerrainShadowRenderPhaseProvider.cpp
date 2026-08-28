@@ -213,10 +213,6 @@ star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRend
     auto depthHandles = star::core::renderer::RenderTargets::registerTextures(ctx, renderingContext, depthTextures);
 
     const vk::Format depthFormat = depthTextures.front().getBaseFormat();
-
-    // Build non-compare (raw) sibling textures over the same shadow depth images
-    // and register them. These expose the shadow depth for raw reads (texelFetch)
-    // via rawDepthHandles(), separate from the compare-sampler depthHandles().
     auto rawDepthTextures = CreateRawShadowDepthTextures(ctx, depthTextures, renderingContext.targetResolution.width,
                                                          renderingContext.targetResolution.height, depthFormat);
     m_rawDepthHandles = star::core::renderer::RenderTargets::registerTextures(ctx, renderingContext, rawDepthTextures);
