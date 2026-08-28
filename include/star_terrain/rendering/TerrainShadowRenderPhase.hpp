@@ -89,8 +89,11 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
     virtual std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride>
     getSubmissionOverride() override;
 
+    virtual void updateDependentData(star::core::device::DeviceContext &context) override;
+
   private:
     std::array<vk::BufferMemoryBarrier2, 1> m_runtimeBarriers;
+    std::array<vk::DescriptorSet, 1> m_descriptors;
     std::unique_ptr<star::StarShaderInfo> m_globalShaderInfo;
     DataRoles m_dataRoles{};
     OwningBarrierFunction m_barrFunction{nullptr};

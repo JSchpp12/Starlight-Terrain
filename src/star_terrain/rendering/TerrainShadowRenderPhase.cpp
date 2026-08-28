@@ -1,4 +1,4 @@
-﻿#include "star_terrain/rendering/TerrainShadowRenderPhase.hpp"
+#include "star_terrain/rendering/TerrainShadowRenderPhase.hpp"
 
 #include <starlight/command/command_order/TriggerPass.hpp>
 #include <starlight/core/Exceptions.hpp>
@@ -32,6 +32,20 @@ void TerrainShadowRenderPhase::frameUpdate(star::common::IDeviceContext &c)
     m_renderTargets.frameUpdate(context, m_renderingContext);
     updateDependentData(context);
     RenderPhase::frameUpdate(c);
+}
+
+void TerrainShadowRenderPhase::updateDependentData(star::core::device::DeviceContext &context)
+{
+    // Wait for the compute consumer (volume) to have finished with the previous frame's shadow depth before reacquiring
+    // it.
+    auto priorSync = star::core::renderer::GetNeighborConsumerSyncInfo(context.getCmdBus(), m_commandBuffer);
+    auto result = m_frameData->frameUpdate(context, priorSync);
+    auto &record = context.getManagerCommandBuffer().m_manager.get(m_commandBuffer);
+    for (const auto &w : result.waits)
+    {
+        record.oneTimeWaitSemaphoreInfo.insert(w.handle, w.semaphore, w.waitStage, w.signalValue);
+        m_renderingContext.addBufferToRenderingContext(context, w.handle);
+    }
 }
 
 void TerrainShadowRenderPhase::recordCommandBuffer(star::StarCommandBuffer &commandBuffer,
@@ -144,11 +158,13 @@ void TerrainShadowRenderPhase::recordRenderingCalls(vk::CommandBuffer &commandBu
     {
         if (m_globalShaderInfo)
         {
-            auto globalSets = m_globalShaderInfo->getDescriptors(frameInFlightIndex);
-            if (!globalSets.empty())
+            assert(m_globalShaderInfo->getNumDescriptorSets(frameInFlightIndex) <= m_descriptors.size());
+            size_t numWritten{0};
+            m_globalShaderInfo->getDescriptors(frameInFlightIndex, m_descriptors.data(), numWritten);
+            if (numWritten != 0)
             {
                 commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, group.getPipelineLayout(), 0,
-                                                 globalSets.size(), globalSets.data(), 0, nullptr);
+                                                 numWritten, m_descriptors.data(), 0, nullptr);
             }
         }
 

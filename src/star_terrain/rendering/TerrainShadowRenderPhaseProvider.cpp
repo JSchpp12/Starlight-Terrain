@@ -151,14 +151,8 @@ static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device
     return depthTextures;
 }
 
-//
-// Non-compare (raw) sibling textures over the same shadow depth images created
-// by CreateShadowDepthTextures. The compare textures carry a compare sampler
-// (compareEnable=true) suitable for PCF shadow tests. These raw siblings carry a
-// non-compare sampler so consumers can read raw shadow depth via texelFetch.
-// They are built over the existing vk::Image via Texture::Builder(device, image),
-// so they do NOT own the image/allocation -- only their own view + sampler.
-//
+// Non-compare (raw) sibling textures over the same shadow depth images created by CreateShadowDepthTextures. The
+// compare textures carry a compare sampler (compareEnable=true) suitable for PCF shadow tests.
 static std::vector<StarTextures::Texture> CreateRawShadowDepthTextures(
     core::device::DeviceContext &context, const std::vector<StarTextures::Texture> &compareTextures, const int width,
     const int height, const vk::Format depthFormat)
@@ -241,9 +235,9 @@ star::core::renderer::RenderTargets TerrainShadowRenderPhaseProvider::createRend
                                     .setImage(tx.getVulkanImage())
                                     .setSrcAccessMask(vk::AccessFlagBits2::eNone)
                                     .setSrcStageMask(vk::PipelineStageFlagBits2::eNone)
+                                    .setDstStageMask(vk::PipelineStageFlagBits2::eAllGraphics)
                                     .setDstAccessMask(vk::AccessFlagBits2::eDepthStencilAttachmentRead |
                                                       vk::AccessFlagBits2::eDepthStencilAttachmentWrite)
-                                    .setDstStageMask(vk::PipelineStageFlagBits2::eEarlyFragmentTests)
                                     .setSubresourceRange(vk::ImageSubresourceRange()
                                                              .setAspectMask(vk::ImageAspectFlagBits::eDepth)
                                                              .setBaseMipLevel(0)
@@ -320,7 +314,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
     const auto global = star::core::renderer::shaderInfoHandle("Global");
     star::core::renderer::DescriptorRecipe::Builder(c.getEventBus(), c,
                                                     star::event::DescriptorPoolReady::GetUniqueTypeName())
-        .setShaderInfoOut(global, &phase->m_globalShaderInfo)
+        .setShaderInfoOut(global, &phase->m_globalShaderInfo, /*baseSet=*/0)
         .addBinding(phase->m_frameData, 0, 0, shadowLightProjDataRole, vk::DescriptorType::eUniformBuffer,
                     vk::ShaderStageFlagBits::eAll)
         .setRenderGroups(global, &phase->m_renderGroups, phase->getRenderTargetInfo(), phase->m_commandBuffer)
