@@ -11,11 +11,12 @@ namespace star::terrain::rendering
 {
 ShadowCameraController::ShadowCameraController(
     uint8_t numFramesInFlight, std::shared_ptr<std::vector<Light>> lights, uint8_t mainLightIndex,
+    std::array<uint32_t, 2> shadowMapResolution,
     const star::ManagerController::RenderResource::GlobalInfo *mainRenderCameraController,
     const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController)
     : m_lastLightDirections(static_cast<size_t>(numFramesInFlight)), m_lights(std::move(lights)),
-      m_mainLightIndex(mainLightIndex), m_mainRenderCameraController(mainRenderCameraController),
-      m_instanceModelInfoController(instanceModelInfoController)
+      m_shadowMapResolution(std::move(shadowMapResolution)), m_mainRenderCameraController(mainRenderCameraController),
+      m_instanceModelInfoController(instanceModelInfoController), m_mainLightIndex(mainLightIndex)
 {
 }
 
@@ -44,6 +45,11 @@ std::unique_ptr<TransferRequest::Buffer> ShadowCameraController::createTransferR
     const auto &dir = m_lights->at(m_mainLightIndex).getDirection();
 
     m_lastLightDirections[frameInFlightIndex] = dir;
-    return std::make_unique<ShadowCameraTransfer>(dir, *m_mainRenderCameraController->getCamera());
+
+    return std::make_unique<ShadowCameraTransfer>(ShadowCameraTransfer::Builder()
+                                                      .setLightDir(dir)
+                                                      .setStarCamera(*m_mainRenderCameraController->getCamera())
+                                                      .setShadowMapResolution(m_shadowMapResolution)
+                                                      .build());
 }
 } // namespace star::terrain::rendering

@@ -16,6 +16,7 @@ class ShadowCameraController : public star::ManagerController::RenderResource::B
   public:
     ShadowCameraController(
         uint8_t numFramesInFlight, std::shared_ptr<std::vector<Light>> lights, uint8_t mainLightIndex,
+        std::array<uint32_t, 2> shadowMapResolution,
         const star::ManagerController::RenderResource::GlobalInfo *mainRenderCameraController,
         const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController);
     virtual ~ShadowCameraController() = default;
@@ -32,8 +33,9 @@ class ShadowCameraController : public star::ManagerController::RenderResource::B
   private:
     std::vector<glm::vec3> m_lastLightDirections;
     std::shared_ptr<std::vector<Light>> m_lights;
-    uint8_t m_mainLightIndex;
+    std::array<uint32_t, 2> m_shadowMapResolution;
     const star::ManagerController::RenderResource::GlobalInfo *m_mainRenderCameraController{nullptr};
     const star::ManagerController::RenderResource::InstanceModelInfo *m_instanceModelInfoController{nullptr};
+    uint8_t m_mainLightIndex;
 };
 } // namespace star::terrain::rendering

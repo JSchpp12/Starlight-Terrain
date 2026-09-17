@@ -54,8 +54,8 @@ static std::shared_ptr<star::core::renderer::FrameData> CreateShadowFrameData(
     const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController) noexcept
 {
     auto cameraController = std::make_shared<star::terrain::rendering::ShadowCameraController>(
-        context.frameTracker().getSetup().getNumFramesInFlight(), lights, 0, mainCamController,
-        instanceModelInfoController);
+        context.frameTracker().getSetup().getNumFramesInFlight(), lights, 0, std::array<uint32_t, 2>{2048, 2048},
+        mainCamController, instanceModelInfoController);
     auto fd = std::make_shared<star::core::renderer::FrameData>();
     fd->add(std::move(cameraController),
             star::core::renderer::roleHandle(star::terrain::rendering::data_roles::ShadowLightProjections));

@@ -6,12 +6,13 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <limits>
+#include <math.h>
 #include <starlight/virtual/StarCamera.hpp>
 
 namespace star::terrain::rendering
 {
-ShadowCameraTransfer::ShadowCameraTransfer(glm::vec3 lightDirection, star::StarCamera mainRenderCamera)
-    : m_lightDirection(std::move(lightDirection)), m_mainRenderCamera(std::move(mainRenderCamera))
+ShadowCameraTransfer::ShadowCameraTransfer(ShadowCameraTransfer::CalculatorInfo calculationInfo)
+    : m_calculationInfo(std::move(calculationInfo))
 {
 }
 
@@ -57,11 +58,37 @@ std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createFinal(
         .buildUnique();
 }
 
+static void SnapCameraPositionToShadowTexel(star::StarCamera &workingCamera, const ShadowCasterInfo &calculator,
+                                            const glm::mat4 &shadowLightProj,
+                                            const glm::mat4 &invShadowLightProj) noexcept
+{
+    ShadowCasterInfo::FrustumCornerInfo frustumInfo = calculator.getMainCameraFrustumInfo();
+
+    auto lightSpaceCenter = shadowLightProj * glm::vec4(frustumInfo.center, 1.0);
+
+    const float texelSize = frustumInfo.viewSphereRadius * 2.0f;
+    lightSpaceCenter.x = std::floor(lightSpaceCenter.x / texelSize) * texelSize;
+    lightSpaceCenter.y = std::floor(lightSpaceCenter.y / texelSize) * texelSize;
+
+    glm::vec3 snappedCenter = glm::vec3(invShadowLightProj * lightSpaceCenter);
+    frustumInfo.center = snappedCenter;
+    workingCamera.setPosition(frustumInfo.center);
+}
+
 ShadowCameraTransfer::ShadowCameraInfo ShadowCameraTransfer::getCameraInfo() const noexcept
 {
-    const ShadowCasterInfo calculator{m_mainRenderCamera, m_lightDirection};
-    return ShadowCameraInfo{.worldToLightViewProj = calculator.getShadowLightProjection(),
-                            .worldToShadowMapProj = glm::mat4()};
+    star::StarCamera workingCamera = star::StarCamera(m_calculationInfo.mainRenderCamera);
+    ShadowCasterInfo calculator{workingCamera, m_calculationInfo.lightDirection};
+    // auto shadowLightProj = calculator.getShadowLightProjection();
+    // auto invShadowLightProj = glm::inverse(shadowLightProj);
+    // SnapCameraPositionToShadowTexel(workingCamera, calculator, shadowLightProj, invShadowLightProj);
+
+    // recalculate with snapped camera location
+    //  shadowLightProj = calculator.getShadowLightProjection();
+    const auto shadowLightProj =
+        calculator.getShadowLightProjectionWithTexelSnapping(m_calculationInfo.shadowMapResolution);
+    return ShadowCameraInfo{.worldToLightViewProj = shadowLightProj,
+                            .invWorldToLightViewProj = glm::inverse(shadowLightProj)};
 }
 
 void ShadowCameraTransfer::writeDataToStageBuffer(StarBuffers::Buffer &buffer) const
