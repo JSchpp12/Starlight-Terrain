@@ -79,14 +79,9 @@ ShadowCameraTransfer::ShadowCameraInfo ShadowCameraTransfer::getCameraInfo() con
 {
     star::StarCamera workingCamera = star::StarCamera(m_calculationInfo.mainRenderCamera);
     ShadowCasterInfo calculator{workingCamera, m_calculationInfo.lightDirection};
-    // auto shadowLightProj = calculator.getShadowLightProjection();
-    // auto invShadowLightProj = glm::inverse(shadowLightProj);
-    // SnapCameraPositionToShadowTexel(workingCamera, calculator, shadowLightProj, invShadowLightProj);
-
-    // recalculate with snapped camera location
-    //  shadowLightProj = calculator.getShadowLightProjection();
-    const auto shadowLightProj =
-        calculator.getShadowLightProjectionWithTexelSnapping(m_calculationInfo.shadowMapResolution);
+    const std::array<uint32_t, 3> fullResDef{m_calculationInfo.shadowMapResolution[0],
+                                             m_calculationInfo.shadowMapResolution[1], 0};
+    const auto shadowLightProj = calculator.getShadowLightProjectionWithTexelSnapping({.resolution = fullResDef, .casterPadding = 3500});
     return ShadowCameraInfo{.worldToLightViewProj = shadowLightProj,
                             .invWorldToLightViewProj = glm::inverse(shadowLightProj)};
 }

@@ -40,69 +40,31 @@ static float GetViewFrustumSphereRadius(const std::array<glm::vec3, 8> &corners,
     return radius;
 }
 
-ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getLightCameraFrustumInfo() const noexcept
+// The light's orientation must depend ONLY on the light direction (never the camera), otherwise the shadow map
+// rotates with the camera and there is no stable texel grid to snap to.
+static glm::vec3 PickLightUpDirection(const glm::vec3 &forward) noexcept
 {
-    auto info = getMainCameraFrustumInfo();
-    transformToLightSpace(info);
-    return info;
-}
-
-ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getMainCameraFrustumInfo() const noexcept
-{
-    FrustumCornerInfo info{
-        .corners = GetNDFrustumCorners(), .center = glm::vec3{0.0f, 0.0f, 0.0f}, .viewSphereRadius = 0.0f};
-
-    const glm::mat4 inv = glm::inverse(m_worldCamera.getProjectionMatrix() * m_worldCamera.getViewMatrix());
-    for (size_t i = 0; i < 8; ++i)
+    constexpr glm::vec3 kWorldUp{0.0f, 1.0f, 0.0f}; // change if your world is Z-up
+    if (glm::abs(glm::dot(forward, kWorldUp)) > 0.999f)
     {
-        const glm::vec4 pt = inv * glm::vec4(info.corners[i], 1.0f);
-        info.corners[i] = glm::vec3(pt) / pt.w;
-        info.center += info.corners[i];
-    }
-
-    info.center /= 8.0f;
-    info.viewSphereRadius = GetViewFrustumSphereRadius(info.corners, info.center);
-
-    return info;
-}
-
-// glm::lookAt computes normalize(cross(forward, up)). Just pick the normal up direction for anything that is not
-// directly down
-static glm::vec3 PickLightUpDirection(const glm::vec3 &lightDirection, const glm::vec3 &cameraUpDir) noexcept
-{
-    const glm::vec3 forward = glm::normalize(lightDirection);
-    const glm::vec3 up = glm::normalize(cameraUpDir);
-
-    if (glm::abs(glm::dot(forward, up)) > 0.999f)
-    {
-        // Light points straight down/up: pick a horizontal axis so the shadow frustum's right/up axes line up with
-        // world X/Z instead of getting swapped.
         return glm::vec3{0.0f, 0.0f, 1.0f};
     }
-
-    return up;
+    return kWorldUp;
 }
 
-static glm::mat4 GetLightView(const glm::vec3 &frustumCenter, const glm::vec3 &lightDirection,
-                              const glm::vec3 cameraUpDir, float sphereRadius) noexcept
+// Rotation only (eye at origin). This is the fixed "light space" used for snapping.
+static glm::mat4 GetLightRotation(const glm::vec3 &lightDirection) noexcept
 {
     const glm::vec3 forward = glm::normalize(lightDirection);
-    glm::vec3 up = PickLightUpDirection(lightDirection, cameraUpDir);
-    const glm::vec3 right = glm::normalize(glm::cross(forward, up));
-    up = glm::cross(right, forward);
-
-    const auto lightPosition = frustumCenter - (forward * sphereRadius);
-    return glm::lookAt(lightPosition, frustumCenter, up);
+    return glm::lookAt(glm::vec3(0.0f), forward, PickLightUpDirection(forward));
 }
 
-// Rotation-only — NOT re-centered on frustumCenter, so a moving center actually moves in this space.
-static glm::mat4 GetLightRotationOnly(const glm::vec3 &lightDirection, const glm::vec3 &cameraUpDir) noexcept
+// Light view whose eye sits `distanceBehind` back from `center` along the light direction.
+static glm::mat4 GetLightView(const glm::vec3 &center, const glm::vec3 &lightDirection, float distanceBehind) noexcept
 {
     const glm::vec3 forward = glm::normalize(lightDirection);
-    glm::vec3 up = PickLightUpDirection(lightDirection, cameraUpDir);
-    const glm::vec3 right = glm::normalize(glm::cross(forward, up));
-    up = glm::cross(right, forward);
-    return glm::lookAt(glm::vec3(0.0f), forward, up); // fixed eye/target, independent of frustumCenter
+    const glm::vec3 eye = center - forward * distanceBehind;
+    return glm::lookAt(eye, center, PickLightUpDirection(forward));
 }
 
 static std::array<glm::vec3, 8> ApplyTransformToCorners(const std::array<glm::vec3, 8> &worldCorners,
@@ -117,81 +79,75 @@ static std::array<glm::vec3, 8> ApplyTransformToCorners(const std::array<glm::ve
     return lightSpaceCorners;
 }
 
-struct LightSpaceAABB
+ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getLightCameraFrustumInfo() const noexcept
 {
-    glm::vec3 min;
-    glm::vec3 max;
-};
+    auto info = getMainCameraFrustumInfo();
+    transformToLightSpace(info);
+    return info;
+}
 
-static LightSpaceAABB GetLightSpaceAABB(const std::array<glm::vec3, 8> &lightSpaceCorners) noexcept
+ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getMainCameraFrustumInfo() const noexcept
 {
-    glm::vec3 min{std::numeric_limits<float>::max()};
-    glm::vec3 max{std::numeric_limits<float>::lowest()};
-    for (const auto &corner : lightSpaceCorners)
+    FrustumCornerInfo info{.corners = GetNDFrustumCorners(), .center = glm::vec3{0.0f}, .viewSphereRadius = 0.0f};
+
+    // NDC -> camera VIEW space. This depends only on the projection, so the shape (and radius) is identical no
+    // matter where the camera is or where it is looking.
+    const glm::mat4 invProj = glm::inverse(m_worldCamera.getProjectionMatrix());
+    glm::vec3 viewCenter{0.0f};
+    for (auto &corner : info.corners)
     {
-        min = glm::min(min, corner);
-        max = glm::max(max, corner);
+        const glm::vec4 pt = invProj * glm::vec4(corner, 1.0f);
+        corner = glm::vec3(pt) / pt.w;
+        viewCenter += corner;
     }
-    return LightSpaceAABB{min, max};
-}
+    viewCenter /= 8.0f;
 
-static glm::mat4 GetLightProjFromSphere(const glm::vec3 &lightSpaceCenter, float radius, float near, float far) noexcept
-{
-    auto proj = glm::ortho(lightSpaceCenter.x - radius, lightSpaceCenter.x + radius, lightSpaceCenter.y - radius,
-                           lightSpaceCenter.y + radius, near, far);
-    proj[1][1] *= -1;
-    return proj;
-}
+    // Quantize so tiny float differences can never change the texel size between frames.
+    float radius = GetViewFrustumSphereRadius(info.corners, viewCenter);
+    radius = std::ceil(radius * 16.0f) / 16.0f;
 
-static glm::mat4 GetLightViewProj(const ShadowCasterInfo::FrustumCornerInfo &lightSpaceInfo, const glm::mat4 &lightView,
-                                  const star::StarCamera &worldCamera) noexcept
-{
-    constexpr float kDepthMargin{1.0f};
-    const auto aabb = GetLightSpaceAABB(lightSpaceInfo.corners);
-    const float near = glm::max(0.0f, -aabb.max.z - kDepthMargin);
-    const float far = -aabb.min.z + kDepthMargin;
-    const auto lightProj = GetLightProjFromSphere(lightSpaceInfo.center, lightSpaceInfo.viewSphereRadius, near, far);
+    // Now move to world space.
+    const glm::mat4 invView = glm::inverse(m_worldCamera.getViewMatrix());
+    ApplyTransformToCorners(info.corners, invView);
+    info.center = glm::vec3(invView * glm::vec4(viewCenter, 1.0f));
+    info.viewSphereRadius = radius;
 
-    return lightProj * lightView;
+    return info;
 }
 
 void ShadowCasterInfo::transformToLightSpace(FrustumCornerInfo &workingInfo) const noexcept
 {
-    const auto lightView = GetLightView(workingInfo.center, m_shadowLightDirection, m_worldCamera.getUpVector(),
-                                        workingInfo.viewSphereRadius);
+    const auto lightView = GetLightView(workingInfo.center, m_shadowLightDirection, workingInfo.viewSphereRadius);
     workingInfo.corners = ApplyTransformToCorners(workingInfo.corners, lightView);
-    workingInfo.center = glm::vec3(lightView * glm::vec4(workingInfo.center, 1.0));
-}
-
-static glm::vec3 SnapCameraPositiontoShadowTexel(const ShadowCasterInfo::FrustumCornerInfo &frustumInfo,
-                                                 const std::array<uint32_t, 2> &shadowMapResolution,
-                                                 const glm::vec3 &lightDir, const glm::vec3 &cameraUpDir) noexcept
-{
-    const auto lightView = GetLightRotationOnly(lightDir, cameraUpDir);
-    const float orthoSize = frustumInfo.viewSphereRadius * 2.0f;
-    const float texelSize = orthoSize / shadowMapResolution[0];
-
-    auto lightSpaceCenter = lightView * glm::vec4(frustumInfo.center, 1.0);
-    lightSpaceCenter.x = std::floor(lightSpaceCenter.x / texelSize) * texelSize;
-    lightSpaceCenter.y = std::floor(lightSpaceCenter.y / texelSize) * texelSize;
-
-    const glm::vec3 snappedCenter = glm::vec3(glm::inverse(lightView) * lightSpaceCenter);
-    return snappedCenter;
+    workingInfo.center = glm::vec3(lightView * glm::vec4(workingInfo.center, 1.0f));
 }
 
 glm::mat4 ShadowCasterInfo::getShadowLightProjectionWithTexelSnapping(
-    const std::array<uint32_t, 2> &shadowMapResolution) const noexcept
+    const LightProjectionParams &params) const noexcept
 {
-    FrustumCornerInfo cornerInfo = getMainCameraFrustumInfo();
-    // apply snapping
-    cornerInfo.center = SnapCameraPositiontoShadowTexel(cornerInfo, shadowMapResolution, m_shadowLightDirection,
-                                                        m_worldCamera.getUpVector());
+    const FrustumCornerInfo info = getMainCameraFrustumInfo();
 
-    const auto lightView = GetLightView(cornerInfo.center, m_shadowLightDirection, m_worldCamera.getUpVector(),
-                                        cornerInfo.viewSphereRadius);
-    transformToLightSpace(cornerInfo);
+    // Quantize an overridden radius too, so it can never wobble between frames.
+    const float radius = params.radius > 0.0f ? std::ceil(params.radius * 16.0f) / 16.0f : info.viewSphereRadius;
+    const float depthRange = 2.0f * radius + 2.0f * params.casterPadding;
 
-    return GetLightViewProj(cornerInfo, lightView, m_worldCamera);
+    const glm::mat4 lightRot = GetLightRotation(m_shadowLightDirection);
+    glm::vec3 c = glm::vec3(lightRot * glm::vec4(info.center, 1.0f));
+
+    const float extents[3] = {2.0f * radius, 2.0f * radius, depthRange};
+    for (int i = 0; i < 3; ++i)
+    {
+        if (params.resolution[i] == 0)
+            continue;
+        const float step = extents[i] / static_cast<float>(params.resolution[i]);
+        c[i] = std::floor(c[i] / step) * step;
+    }
+
+    const glm::mat4 lightView =
+        glm::translate(glm::mat4(1.0f), glm::vec3(-c.x, -c.y, -c.z - radius - params.casterPadding)) * lightRot;
+
+    auto proj = glm::ortho(-radius, radius, -radius, radius, 0.0f, depthRange);
+    proj[1][1] *= -1;
+    return proj * lightView;
 }
-
 } // namespace star::terrain::rendering
