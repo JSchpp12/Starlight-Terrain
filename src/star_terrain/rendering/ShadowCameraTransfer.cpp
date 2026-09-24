@@ -58,30 +58,13 @@ std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createFinal(
         .buildUnique();
 }
 
-static void SnapCameraPositionToShadowTexel(star::StarCamera &workingCamera, const ShadowCasterInfo &calculator,
-                                            const glm::mat4 &shadowLightProj,
-                                            const glm::mat4 &invShadowLightProj) noexcept
-{
-    ShadowCasterInfo::FrustumCornerInfo frustumInfo = calculator.getMainCameraFrustumInfo();
-
-    auto lightSpaceCenter = shadowLightProj * glm::vec4(frustumInfo.center, 1.0);
-
-    const float texelSize = frustumInfo.viewSphereRadius * 2.0f;
-    lightSpaceCenter.x = std::floor(lightSpaceCenter.x / texelSize) * texelSize;
-    lightSpaceCenter.y = std::floor(lightSpaceCenter.y / texelSize) * texelSize;
-
-    glm::vec3 snappedCenter = glm::vec3(invShadowLightProj * lightSpaceCenter);
-    frustumInfo.center = snappedCenter;
-    workingCamera.setPosition(frustumInfo.center);
-}
-
 ShadowCameraTransfer::ShadowCameraInfo ShadowCameraTransfer::getCameraInfo() const noexcept
 {
     star::StarCamera workingCamera = star::StarCamera(m_calculationInfo.mainRenderCamera);
     ShadowCasterInfo calculator{workingCamera, m_calculationInfo.lightDirection};
     const std::array<uint32_t, 3> fullResDef{m_calculationInfo.shadowMapResolution[0],
                                              m_calculationInfo.shadowMapResolution[1], 0};
-    const auto shadowLightProj = calculator.getShadowLightProjectionWithTexelSnapping({.resolution = fullResDef, .casterPadding = 3500});
+    const auto shadowLightProj = calculator.getShadowLightProjectionWithTexelSnapping({.resolution = fullResDef});
     return ShadowCameraInfo{.worldToLightViewProj = shadowLightProj,
                             .invWorldToLightViewProj = glm::inverse(shadowLightProj)};
 }

@@ -93,23 +93,20 @@ ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getMainCameraFrustumInfo()
     // NDC -> camera VIEW space. This depends only on the projection, so the shape (and radius) is identical no
     // matter where the camera is or where it is looking.
     const glm::mat4 invProj = glm::inverse(m_worldCamera.getProjectionMatrix());
-    glm::vec3 viewCenter{0.0f};
     for (auto &corner : info.corners)
     {
         const glm::vec4 pt = invProj * glm::vec4(corner, 1.0f);
         corner = glm::vec3(pt) / pt.w;
-        viewCenter += corner;
     }
-    viewCenter /= 8.0f;
 
     // Quantize so tiny float differences can never change the texel size between frames.
-    float radius = GetViewFrustumSphereRadius(info.corners, viewCenter);
+    float radius = GetViewFrustumSphereRadius(info.corners, glm::vec3{0.0});
     radius = std::ceil(radius * 16.0f) / 16.0f;
 
     // Now move to world space.
     const glm::mat4 invView = glm::inverse(m_worldCamera.getViewMatrix());
     ApplyTransformToCorners(info.corners, invView);
-    info.center = glm::vec3(invView * glm::vec4(viewCenter, 1.0f));
+    info.center = m_worldCamera.getPosition();
     info.viewSphereRadius = radius;
 
     return info;
