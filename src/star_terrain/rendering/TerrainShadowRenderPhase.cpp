@@ -111,7 +111,7 @@ void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer,
         const vk::Rect2D scissor = this->prepareRenderingScissor(m_renderingContext.targetResolution);
         commandBuffer.setScissor(0, scissor);
     }
-    commandBuffer.setCullMode(vk::CullModeFlagBits::eFront);
+    commandBuffer.setCullMode(vk::CullModeFlagBits::eNone);
 
     recordPreRenderPassCommands(commandBuffer, frameTracker);
     recordCommandBufferDependencies(commandBuffer, frameTracker, frameIndex);
