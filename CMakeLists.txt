@@ -38,6 +38,11 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObjectDefinition.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainGeometryDefinition.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObject.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainTextureLoaderPlan.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainTextureLoader.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/texture_loading/TerrainTextureMaterials.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/texture_loading/LazyLoadingTexturePlan.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/texture_loading/AggressiveLoadingTexturePlan.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainShadowRenderPhase.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/FromTerrainDirLoader.hpp
@@ -63,6 +68,9 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainDataset.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainTransform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainObject.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainTextureLoader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/texture_loading/LazyLoadingTexturePlan.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/texture_loading/AggressiveLoadingTexturePlan.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/policies/ShadowDepthReleasePolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/policies/ShadowDepthReacquirePolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainGeometryDefinition.cpp

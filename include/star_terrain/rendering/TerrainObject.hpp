@@ -1,6 +1,5 @@
 #pragma once
 
-#include "star_terrain/file_data/TextureDataInfo.hpp"
 #include "star_terrain/rendering/TerrainObjectDefinition.hpp"
 
 #include "starlight/ShaderResolver.hpp"
@@ -38,9 +37,5 @@ class TerrainObject : public star::StarObject
 
   private:
     TerrainObjectDefinition m_def;
-
-    static std::vector<std::shared_ptr<star::StarMaterial>> loadMaterials(const std::filesystem::path &terrainDir,
-                                                                          const TextureDataInfo &fileInfo,
-                                                                          star::terrain::ColoringMode colorMode);
 };
 } // namespace star::terrain
