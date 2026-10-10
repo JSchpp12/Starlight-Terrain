@@ -1,6 +1,5 @@
 #pragma once
 
-#include "star_terrain/file_data/TextureDataInfo.hpp"
 #include "star_terrain/rendering/TerrainObjectDefinition.hpp"
 
 #include "starlight/ShaderResolver.hpp"
@@ -20,27 +19,23 @@ class TerrainObject : public star::StarObject
 
     std::filesystem::path getHeightInfoFilePath() const noexcept
     {
-        return m_def.terrainDir / "height_info.json";
+        return m_def.geometry.terrainDir / "height_info.json";
     }
     std::filesystem::path getShapeFilePath() const noexcept
     {
-        return m_def.terrainDir / "Shape.json";
+        return m_def.geometry.terrainDir / "Shape.json";
     }
     rendering::Type getRenderingType() const noexcept
     {
-        return m_def.renderType;
+        return m_def.geometry.renderType;
     }
 
+    virtual star::PipelineProvider getPipelineProvider(vk::PipelineLayout pipelineLayout) override;
 
-    virtual star::PipelineProvider getPipelineProvider(vk::PipelineLayout pipelineLayout) override; 
-    
   protected:
     std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
 
   private:
     TerrainObjectDefinition m_def;
-
-    static std::vector<std::shared_ptr<star::StarMaterial>> loadMaterials(const std::filesystem::path &terrainDir,
-                                                                          const TextureDataInfo &fileInfo);
 };
 } // namespace star::terrain

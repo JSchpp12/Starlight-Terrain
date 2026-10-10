@@ -1,58 +1,48 @@
 #include "star_terrain/rendering/TerrainObject.hpp"
 
 #include "star_terrain/file_data/texture_data/Reader.hpp"
-#include "star_terrain/generated/terrain_chunk/TerrainChunk.hpp"
-#include "star_terrain/io/TerrainShapeInfoLoader.hpp"
+#include "star_terrain/rendering/TerrainTextureLoader.hpp"
 #include "star_terrain/rendering/TerrainVertexDescription.hpp"
 
-#include <starlight/common/helpers/FileHelpers.hpp>
 #include <starlight/common/materials/TextureMaterial.hpp>
-#include <starlight/core/Exceptions.hpp>
-#include <starlight/core/logging/LoggingFactory.hpp>
-
-#include <gdal_priv.h>
-#include <tbb/tbb.h>
+#include <starlight/virtual/StarMesh.hpp>
 
 #include <cassert>
 #include <filesystem>
 #include <memory>
-#include <sstream>
 #include <string>
-#include <unordered_map>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 namespace star::terrain
 {
-/// Per-thread GDAL dataset holder. GDAL does not allow concurrent use of a
-/// single GDALDataset from multiple threads, so each TBB worker opens its own
-/// handle to the same height file. Closed in the destructor on the worker
-/// thread that created it.
-struct ThreadLocalDataset
+
+static std::vector<std::shared_ptr<star::StarMaterial>> CreateTerrainMaterials(star::core::device::DeviceContext &context,
+                                                                        const TerrainObjectDefinition &def)
 {
-    GDALDataset *ds{nullptr};
+    // Store by value: the tuple returned by ReadTerrainTextureInfo is a temporary and
+    // binding a reference to std::get<1> of it does not extend its lifetime.
+    const TextureDataInfo fileInfo =
+        std::get<1>(ReadTerrainTextureInfo((def.geometry.terrainDir / "height_info.json").string()));
 
-    explicit ThreadLocalDataset(const std::string &path)
+    if (def.colorMode != ColoringMode::color)
     {
-        ds = static_cast<GDALDataset *>(GDALOpen(path.c_str(), GA_ReadOnly));
-        if (!ds)
-            STAR_THROW("Failed to open GDAL dataset");
+        std::vector<std::shared_ptr<star::StarMaterial>> materials;
+        materials.reserve(fileInfo.chunks.size());
+        for (size_t i = 0; i < fileInfo.chunks.size(); i++)
+        {
+            materials.push_back(std::make_shared<star::StarMaterial>());
+        }
+        return materials;
     }
 
-    ThreadLocalDataset(const ThreadLocalDataset &) = delete;
-    ThreadLocalDataset &operator=(const ThreadLocalDataset &) = delete;
-
-    ~ThreadLocalDataset()
-    {
-        if (ds)
-            GDALClose(ds);
-    }
-};
+    return LoadTerrainTextures(context, def.geometry.terrainDir, fileInfo, def.textures);
+}
 
 TerrainObject::TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def,
                              star::ShaderResolver &shaderResolver)
-    : star::StarObject(loadMaterials(
-          def.terrainDir, std::get<1>(ReadTerrainTextureInfo((def.terrainDir / "height_info.json").string())))),
-      m_def(std::move(def))
+    : star::StarObject(CreateTerrainMaterials(context, def)), m_def(std::move(def))
 {
     m_vertexShaderHandle = shaderResolver.resolve(star::Shader_Stage::vertex);
     m_fragmentShaderHandle = shaderResolver.resolve(star::Shader_Stage::fragment);
@@ -62,133 +52,41 @@ star::PipelineProvider TerrainObject::getPipelineProvider(vk::PipelineLayout pip
 {
     return star::PipelineProvider(
         {m_vertexShaderHandle, m_fragmentShaderHandle}, pipelineLayout,
-        star::GraphicsOverrides{.vertexInput = star::VertexInputState{
-                                    .bindings = star::terrain::rendering::getVertexBindingDescription(),
-                                    .attributes = star::terrain::rendering::getVertexInputAttributeDescription()}});
+        star::GraphicsOverrides{
+            .vertexInput =
+                star::VertexInputState{.bindings = star::terrain::rendering::getVertexBindingDescription(),
+                                       .attributes = star::terrain::rendering::getVertexInputAttributeDescription()},
+            .dynamicStates =
+                m_def.colorMode == ColoringMode::greyscale
+                    ? std::vector<vk::DynamicState>{vk::DynamicState::eScissor, vk::DynamicState::eViewport,
+                                                    vk::DynamicState::eLineWidth, vk::DynamicState::eCullMode}
+                    : std::vector<vk::DynamicState>()});
 }
 
 std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::DeviceContext &context)
 {
-    for (auto &material : m_meshMaterials)
+    // conditionally pre-load textures
+    if (m_def.colorMode == star::terrain::ColoringMode::color)
     {
-        static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
-    }
-
-    const auto infoPath = getHeightInfoFilePath();
-    auto [readResult, fileInfo] = ReadTerrainTextureInfo(infoPath.string());
-
-    const auto terrainPath = std::filesystem::path(m_def.terrainDir);
-    auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(getShapeFilePath(), context.getCmdBus());
-
-    std::vector<TerrainChunk> chunks;
-    GDALAllRegister();
-
-    CoverageInfo shapeInfo = loadingShapeInfo.get();
-    glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
-
-    const auto fullHeightFilePath = terrainPath / std::filesystem::path(fileInfo.fullHeightFilePath);
-
-    if (!std::filesystem::exists(fullHeightFilePath))
-    {
-        std::ostringstream oss;
-        oss << "Elevation file does not exist: " << fullHeightFilePath.string()
-            << ". The terrain directory is expected to contain the height raster named in "
-            << "height_info.json (fullHeightFilePath = '" << fileInfo.fullHeightFilePath << "').";
-        STAR_THROW(oss.str());
-    }
-
-    bool setWorldCenter = false;
-    for (size_t i = 0; i < fileInfo.chunks.size(); i++)
-    {
-        if (!setWorldCenter)
+        for (auto &material : m_meshMaterials)
         {
-            setWorldCenter = true;
-            worldCenter.z = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(), shapeInfo.center.x,
-                                                                      shapeInfo.center.y);
+            static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
         }
-
-        chunks.emplace_back(fullHeightFilePath.string(), fileInfo.chunks[i].cornerNE, fileInfo.chunks[i].cornerSE,
-                            fileInfo.chunks[i].cornerSW, fileInfo.chunks[i].cornerNW, worldCenter,
-                            fileInfo.chunks[i].center);
     }
 
-    star::core::logging::info("Launching load tasks");
-
-    tbb::enumerable_thread_specific<std::unique_ptr<ThreadLocalDataset>> tls;
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, chunks.size()), [&](const tbb::blocked_range<size_t> &r) {
-        auto &local = tls.local();
-        if (!local)
-            local = std::make_unique<ThreadLocalDataset>(fullHeightFilePath.string());
-
-        for (size_t i = r.begin(); i != r.end(); ++i)
-        {
-            chunks[i].load(local->ds);
-        }
-    });
-    tls.clear();
-    star::core::logging::info("Done");
+    const auto &meshDescriptions = m_def.geometry.meshDescriptions;
+    assert(meshDescriptions.size() == m_meshMaterials.size() && "Every chunk should have its own material");
 
     std::vector<star::StarMesh> terrainMeshes;
-    terrainMeshes.reserve(chunks.size());
+    terrainMeshes.reserve(meshDescriptions.size());
 
-    assert(chunks.size() == m_meshMaterials.size() && "Every chunk should have its own material");
-
-    for (size_t i = 0; i < chunks.size(); i++)
+    for (size_t i = 0; i < meshDescriptions.size(); i++)
     {
-        terrainMeshes.emplace_back(chunks[i].getMesh(context, m_meshMaterials[i]));
+        const auto &desc = meshDescriptions[i];
+        terrainMeshes.emplace_back(desc.vertBuffer, desc.indBuffer, desc.vertCount, desc.indCount, m_meshMaterials[i],
+                                   desc.bbMin, desc.bbMax, false);
     }
 
     return terrainMeshes;
 }
-
-std::optional<std::filesystem::path> CheckForCompressedTexture(const std::filesystem::path &terrainDir,
-                                                               std::string chunkPath)
-{
-    chunkPath += ".ktx2";
-    std::filesystem::path testPath = terrainDir / std::filesystem::path(chunkPath);
-    if (std::filesystem::exists(testPath))
-        return std::make_optional(testPath);
-    return std::nullopt;
-}
-
-std::vector<std::shared_ptr<star::StarMaterial>> TerrainObject::loadMaterials(const std::filesystem::path &terrainDir,
-                                                                              const TextureDataInfo &fileInfo)
-{
-    std::vector<std::shared_ptr<star::StarMaterial>> materials;
-    materials.reserve(fileInfo.chunks.size());
-
-    for (size_t i = 0; i < fileInfo.chunks.size(); i++)
-    {
-        std::optional<std::filesystem::path> found =
-            CheckForCompressedTexture(terrainDir, fileInfo.chunks[i].textureFile);
-
-        if (!found.has_value())
-        {
-            // manually iterate and search for proper one
-            auto files = star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(
-                terrainDir.string(), fileInfo.chunks[i].textureFile);
-            for (const auto &file : files)
-            {
-                if (file.extension() == ".ktx2")
-                    found = file;
-            }
-
-            if (found.has_value())
-                break;
-        }
-
-        if (!found.has_value())
-        {
-            std::ostringstream oss;
-            oss << "Failed to find matching texture for file: " << fileInfo.chunks[i].textureFile << std::endl
-                << "Ensure terrains are prepared with compressed textures" << std::endl;
-            STAR_THROW(oss.str());
-        }
-
-        materials.push_back(std::make_shared<star::TextureMaterial>(found.value().string()));
-    }
-
-    return materials;
-}
-
 } // namespace star::terrain
