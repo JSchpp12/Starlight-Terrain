@@ -14,6 +14,8 @@
 #include <starlight/core/renderer/FrameData.hpp>
 #include <starlight/core/renderer/RenderPhaseHelpers.hpp>
 #include <starlight/event/DescriptorPoolReady.hpp>
+#include <starlight/factory/TextureFactory.hpp>
+#include <starlight/maker/texture/MakeTexture.hpp>
 
 #include <star_common/EventBus.hpp>
 #include <star_common/FrameTracker.hpp>
@@ -90,15 +92,14 @@ static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device
     const auto &props = context.getDevice().getPhysicalDevice().getProperties();
 
     vk::Format depthFormat = vk::Format::eUndefined;
-    std::vector<StarTextures::Texture> depthTextures;
-    depthTextures.reserve(numToCreate);
+    std::vector<StarTextures::Texture> depthTextures(numToCreate);
     {
         depthFormat =
             selectFormat(context, {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
                          vk::FormatFeatureFlagBits::eDepthStencilAttachment | vk::FormatFeatureFlagBits::eSampledImage);
 
         auto builder =
-            star::StarTextures::Texture::Builder(context.getDevice())
+            star::maker::texture::MakeTexture(context.getDevice())
                 .setCreateInfo(
                     Allocator::AllocationBuilder()
                         .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
@@ -142,9 +143,10 @@ static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device
                                     .setMinLod(0.0f)
                                     .setMaxLod(0.0f));
 
-        for (uint8_t i = 0; i < numToCreate; i++)
+        const auto makeResult = builder.make(depthTextures.data(), numToCreate);
+        if (!makeResult)
         {
-            depthTextures.push_back(builder.build());
+            STAR_THROW("Terrain: failed to create shadow depth textures: " + makeResult.error().detail);
         }
     }
 
@@ -161,41 +163,48 @@ static std::vector<StarTextures::Texture> CreateRawShadowDepthTextures(
     rawTextures.reserve(compareTextures.size());
 
     const vk::Extent3D extent = vk::Extent3D().setWidth(width).setHeight(height).setDepth(1);
-    const vk::DeviceSize size = StarTextures::Texture::CalculateSize(depthFormat, extent, 1, vk::ImageType::e2D, 1);
+    const vk::DeviceSize size =
+        StarTextures::TextureFactory::CalculateSize(depthFormat, extent, 1, vk::ImageType::e2D, 1);
 
     for (const auto &compareTexture : compareTextures)
     {
         const vk::Image image = compareTexture.getVulkanImage();
 
-        auto rawTexture = star::StarTextures::Texture::Builder(context.getDevice(), image)
-                              .setBaseFormat(depthFormat)
-                              .addViewInfo(vk::ImageViewCreateInfo()
-                                               .setViewType(vk::ImageViewType::e2D)
-                                               .setFormat(depthFormat)
-                                               .setSubresourceRange(vk::ImageSubresourceRange()
-                                                                        .setAspectMask(vk::ImageAspectFlagBits::eDepth)
-                                                                        .setBaseArrayLayer(0)
-                                                                        .setLayerCount(1)
-                                                                        .setBaseMipLevel(0)
-                                                                        .setLevelCount(1)))
-                              .setSamplerInfo(vk::SamplerCreateInfo()
-                                                  .setAnisotropyEnable(VK_FALSE)
-                                                  .setMaxAnisotropy(1.0f)
-                                                  .setMagFilter(vk::Filter::eLinear)
-                                                  .setMinFilter(vk::Filter::eLinear)
-                                                  .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
-                                                  .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
-                                                  .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
-                                                  .setBorderColor(vk::BorderColor::eIntOpaqueWhite)
-                                                  .setUnnormalizedCoordinates(VK_FALSE)
-                                                  .setCompareEnable(VK_FALSE)
-                                                  .setCompareOp(vk::CompareOp::eAlways)
-                                                  .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-                                                  .setMipLodBias(0.0f)
-                                                  .setMinLod(0.0f)
-                                                  .setMaxLod(0.0f))
-                              .setSizeInfo(size, extent)
-                              .build();
+        star::StarTextures::Texture rawTexture;
+        const auto makeResult =
+            star::maker::texture::MakeTexture(context.getDevice(), image)
+                .setBaseFormat(depthFormat)
+                .addViewInfo(vk::ImageViewCreateInfo()
+                                 .setViewType(vk::ImageViewType::e2D)
+                                 .setFormat(depthFormat)
+                                 .setSubresourceRange(vk::ImageSubresourceRange()
+                                                          .setAspectMask(vk::ImageAspectFlagBits::eDepth)
+                                                          .setBaseArrayLayer(0)
+                                                          .setLayerCount(1)
+                                                          .setBaseMipLevel(0)
+                                                          .setLevelCount(1)))
+                .setSamplerInfo(vk::SamplerCreateInfo()
+                                    .setAnisotropyEnable(VK_FALSE)
+                                    .setMaxAnisotropy(1.0f)
+                                    .setMagFilter(vk::Filter::eLinear)
+                                    .setMinFilter(vk::Filter::eLinear)
+                                    .setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+                                    .setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+                                    .setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+                                    .setBorderColor(vk::BorderColor::eIntOpaqueWhite)
+                                    .setUnnormalizedCoordinates(VK_FALSE)
+                                    .setCompareEnable(VK_FALSE)
+                                    .setCompareOp(vk::CompareOp::eAlways)
+                                    .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+                                    .setMipLodBias(0.0f)
+                                    .setMinLod(0.0f)
+                                    .setMaxLod(0.0f))
+                .setSizeInfo(size, extent)
+                .make(&rawTexture, 1);
+        if (!makeResult)
+        {
+            STAR_THROW("Terrain: failed to create raw shadow depth texture: " + makeResult.error().detail);
+        }
 
         rawTextures.push_back(std::move(rawTexture));
     }
