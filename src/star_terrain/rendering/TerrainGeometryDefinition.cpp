@@ -17,7 +17,7 @@
 #include <sstream>
 #include <utility>
 
-namespace star::terrain
+namespace star::terrain::rendering
 {
 
 namespace
@@ -49,9 +49,9 @@ struct ThreadLocalDataset
 } // namespace
 
 TerrainGeometryDefinition::TerrainGeometryDefinition(std::vector<ChunkMeshDescription> meshDescriptions,
-                                                     std::filesystem::path terrainDir, rendering::Type renderType)
+                                                     std::filesystem::path terrainDir, Type defaultRenderType)
     : meshDescriptions(std::move(meshDescriptions)), terrainDir(std::move(terrainDir)),
-      renderType(std::move(renderType))
+      defaultRenderType(std::move(defaultRenderType))
 {
 }
 
@@ -61,9 +61,9 @@ TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setTerra
     return *this;
 }
 
-TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setRenderType(rendering::Type renderType)
+TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setDefaultRenderType(Type defaultRenderType)
 {
-    m_renderType = std::move(renderType);
+    m_defaultRenderType = std::move(defaultRenderType);
     return *this;
 }
 
@@ -134,6 +134,6 @@ TerrainGeometryDefinition TerrainGeometryDefinition::Builder::build()
         meshDescriptions.emplace_back(chunk.createMeshDescription(m_context));
     }
 
-    return TerrainGeometryDefinition{std::move(meshDescriptions), std::move(m_terrainDir), m_renderType};
+    return TerrainGeometryDefinition{std::move(meshDescriptions), std::move(m_terrainDir), m_defaultRenderType};
 }
-} // namespace star::terrain
+} // namespace star::terrain::rendering

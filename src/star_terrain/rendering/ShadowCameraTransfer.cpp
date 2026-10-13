@@ -7,6 +7,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <limits>
 #include <math.h>
+#include <starlight/core/Exceptions.hpp>
+#include <starlight/maker/buffer/MakeBuffer.hpp>
 #include <starlight/virtual/StarCamera.hpp>
 
 namespace star::terrain::rendering
@@ -21,20 +23,27 @@ std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createStagingBuffer(
 {
     constexpr vk::DeviceSize size = sizeof(ShadowCameraInfo);
 
-    return StarBuffers::Buffer::Builder(device.getAllocator().get())
-        .setAllocationCreateInfo(
-            Allocator::AllocationBuilder()
-                .setFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT)
-                .setUsage(VMA_MEMORY_USAGE_AUTO)
-                .build(),
-            vk::BufferCreateInfo()
-                .setSharingMode(vk::SharingMode::eExclusive)
-                .setSize(size)
-                .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
-            "ShadowCamera_TransferSRC")
-        .setInstanceCount(1)
-        .setInstanceSize(size)
-        .buildUnique();
+    star::StarBuffers::Buffer builtBuffer;
+    const auto makeResult = star::maker::buffer::MakeBuffer(device)
+                                .setCreateInfo(Allocator::AllocationBuilder()
+                                                   .setFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT |
+                                                             VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT)
+                                                   .setUsage(VMA_MEMORY_USAGE_AUTO)
+                                                   .build(),
+                                               vk::BufferCreateInfo()
+                                                   .setSharingMode(vk::SharingMode::eExclusive)
+                                                   .setSize(size)
+                                                   .setUsage(vk::BufferUsageFlagBits::eTransferSrc),
+                                               "ShadowCamera_TransferSRC")
+                                .setInstanceCount(1)
+                                .setInstanceSize(size)
+                                .make(&builtBuffer, 1);
+    if (!makeResult)
+    {
+        STAR_THROW("Failed to create staging buffer for shadow camera: " + makeResult.error().detail);
+    }
+
+    return std::make_unique<StarBuffers::Buffer>(std::move(builtBuffer));
 }
 
 std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createFinal(
@@ -42,20 +51,27 @@ std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createFinal(
 {
     constexpr vk::DeviceSize size = sizeof(ShadowCameraInfo);
 
-    return StarBuffers::Buffer::Builder(device.getAllocator().get())
-        .setAllocationCreateInfo(
-            Allocator::AllocationBuilder()
-                .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
-                .setUsage(VMA_MEMORY_USAGE_AUTO)
-                .build(),
-            vk::BufferCreateInfo()
-                .setSharingMode(vk::SharingMode::eExclusive)
-                .setSize(size)
-                .setUsage(vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eUniformBuffer),
-            "ShadowCamera")
-        .setInstanceCount(1)
-        .setInstanceSize(size)
-        .buildUnique();
+    star::StarBuffers::Buffer builtBuffer;
+    const auto makeResult = star::maker::buffer::MakeBuffer(device)
+                                .setCreateInfo(Allocator::AllocationBuilder()
+                                                   .setFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+                                                   .setUsage(VMA_MEMORY_USAGE_AUTO)
+                                                   .build(),
+                                               vk::BufferCreateInfo()
+                                                   .setSharingMode(vk::SharingMode::eExclusive)
+                                                   .setSize(size)
+                                                   .setUsage(vk::BufferUsageFlagBits::eTransferDst |
+                                                             vk::BufferUsageFlagBits::eUniformBuffer),
+                                               "ShadowCamera")
+                                .setInstanceCount(1)
+                                .setInstanceSize(size)
+                                .make(&builtBuffer, 1);
+    if (!makeResult)
+    {
+        STAR_THROW("Failed to create final buffer for shadow camera: " + makeResult.error().detail);
+    }
+
+    return std::make_unique<StarBuffers::Buffer>(std::move(builtBuffer));
 }
 
 ShadowCameraTransfer::ShadowCameraInfo ShadowCameraTransfer::getCameraInfo() const noexcept

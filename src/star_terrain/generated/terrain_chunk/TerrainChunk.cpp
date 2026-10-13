@@ -66,7 +66,7 @@ void TerrainChunk::load(GDALDataset *sharedDataset)
     loadGeomInfo(dataset, verts, inds, this->firstLine, this->lastLine);
 }
 
-ChunkMeshDescription TerrainChunk::createMeshDescription(star::core::device::DeviceContext &context)
+rendering::ChunkMeshDescription TerrainChunk::createMeshDescription(star::core::device::DeviceContext &context)
 {
     const auto &graphicsIndex =
         star::core::helper::GetEngineDefaultQueue(context.getEventBus(), context.getGraphicsManagers().queueManager,
@@ -87,7 +87,7 @@ ChunkMeshDescription TerrainChunk::createMeshDescription(star::core::device::Dev
         bbMax = glm::max(bbMax, v.pos);
     }
 
-    return ChunkMeshDescription{
+    return rendering::ChunkMeshDescription{
         bbMin, bbMax, vertBuffer, indBuffer, static_cast<uint32_t>(verts.size()), static_cast<uint32_t>(inds.size())};
 }
 
