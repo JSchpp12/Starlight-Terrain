@@ -6,7 +6,10 @@
 
 namespace star::terrain::rendering
 {
-struct TerrainVertex;
+namespace geometry
+{
+struct FullTerrainVertex;
+}
 
 std::vector<vk::VertexInputBindingDescription> getVertexBindingDescription();
 

@@ -2,6 +2,7 @@
 
 #include "star_terrain/rendering/ChunkMeshDescription.hpp"
 #include "star_terrain/rendering/TerrainRenderingType.hpp"
+#include "star_terrain/rendering/TerrainShapeRepresentationType.hpp"
 
 #include <filesystem>
 #include <vector>
@@ -20,6 +21,8 @@ class TerrainGeometryDefinition
   public:
     std::vector<ChunkMeshDescription> meshDescriptions;
     std::filesystem::path terrainDir;
+    /// Shape representation that produced this definition's GPU resources.
+    Representation shapeRepresentation;
     Type defaultRenderType;
 
     class Builder
@@ -29,12 +32,14 @@ class TerrainGeometryDefinition
         {
         }
         Builder &setTerrainDir(std::filesystem::path terrainDir);
+        Builder &setShapeRepresentation(Representation shapeRepresentation);
         Builder &setDefaultRenderType(Type defaultRenderType);
         TerrainGeometryDefinition build();
 
       private:
         core::device::DeviceContext &m_context;
         std::filesystem::path m_terrainDir;
+        Representation m_shapeRepresentation{Representation::Geometry};
         Type m_defaultRenderType{Type::Flat};
     };
 
@@ -42,7 +47,7 @@ class TerrainGeometryDefinition
     friend class Builder;
 
     TerrainGeometryDefinition(std::vector<ChunkMeshDescription> meshDescriptions, std::filesystem::path terrainDir,
-                              Type defaultRenderType);
+                              Representation shapeRepresentation, Type defaultRenderType);
 };
 
 } // namespace star::terrain::rendering

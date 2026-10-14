@@ -30,7 +30,7 @@ endif()
 set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/TerrainFactory.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/util/Distance.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/TerrainChunk.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/policies/LoadFullGeometry.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/TerrainDataset.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/TerrainTransform.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/policies/ShadowDepthReleasePolicy.hpp
@@ -39,6 +39,7 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObjectDefinition.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainGeometryDefinition.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/ChunkMeshDescription.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/ChunkUpload.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainObject.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainTextureLoaderPlan.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainTextureLoader.hpp
@@ -49,12 +50,20 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainShadowRenderPhaseProvider.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/FromTerrainDirLoader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainVertexDescription.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/geometry/FullTerrainVertex.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainShapeRepresentationType.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/ShadowCameraController.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/ShadowCameraTransfer.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/ShadowCasterInfo.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/ChunkRequest.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/CornerRequest.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainChunkInfo.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/layout/TerrainGrid.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/ReadResult.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeInfoLoader.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TargetChunkInfo.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeLoader.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/GDALDatasetLoader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/TextureDataInfo.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/texture_data/Reader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/ChunkInfo.hpp
@@ -67,7 +76,7 @@ set(${PROJECT_NAME}_HEADERS
 set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/TerrainFactory.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/util/Distance.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainChunk.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/policies/LoadFullGeometry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainDataset.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/generated/terrain_chunk/TerrainTransform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainObject.cpp
@@ -77,6 +86,7 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/policies/ShadowDepthReleasePolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/policies/ShadowDepthReacquirePolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainGeometryDefinition.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/ChunkUpload.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhaseProvider.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/FromTerrainDirLoader.cpp
@@ -84,8 +94,12 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/ShadowCameraController.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/ShadowCameraTransfer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/ShadowCasterInfo.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/ChunkRequest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/CornerRequest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/layout/TerrainGrid.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainShapeInfoLoader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainShapeLoader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/GDALDatasetLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/texture_data/Reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/TextureDataInfo_json.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/ChunkInfo_json.cpp

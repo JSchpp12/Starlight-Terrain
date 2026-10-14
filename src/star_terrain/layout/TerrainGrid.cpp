@@ -13,7 +13,7 @@ void TerrainGrid::add(const std::string &heightFile, const std::string &textureF
     chunkInfos.emplace_back(heightFile, textureFile, upperLeft, lowerRight);
 }
 
-std::vector<TerrainChunk> TerrainGrid::getFinalizedChunks()
+std::vector<LoadFullGeometry> TerrainGrid::getFinalizedChunks()
 {
     std::set<float> xBins = createXBins(chunkInfos);
     std::set<float> yBins = createYBins(chunkInfos);
@@ -22,10 +22,9 @@ std::vector<TerrainChunk> TerrainGrid::getFinalizedChunks()
 
     auto &centerOfGrid = grid[std::floor(grid.size() / 2)][std::floor(grid[0].size() / 2)].chunkInfo.value();
     float centerHeight = 0.0f;
-    const glm::dvec3 centerOfTerrainGrid =
-        glm::dvec3{centerOfGrid.center.x, centerOfGrid.center.y, centerHeight};
+    const glm::dvec3 centerOfTerrainGrid = glm::dvec3{centerOfGrid.center.x, centerOfGrid.center.y, centerHeight};
 
-    std::vector<TerrainChunk> chunks;
+    std::vector<LoadFullGeometry> chunks;
     for (size_t i = 0; i < grid.size(); i++)
     {
         for (size_t j = 0; j < grid[i].size(); j++)
