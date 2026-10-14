@@ -29,6 +29,19 @@ star::PipelineProvider TerrainObject::getPipelineProvider(vk::PipelineLayout pip
                     : std::vector<vk::DynamicState>()});
 }
 
+void TerrainObject::recordRenderPassCommands(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout,
+                                             uint8_t swapChainIndexNum, uint64_t frameIndex)
+{
+    switch (m_shapeRenderingMode)
+    {
+    case rendering::Type::Flat:
+        break;
+    default:
+        this->StarObject::recordRenderPassCommands(commandBuffer, pipelineLayout, swapChainIndexNum, frameIndex);
+        break;
+    }
+}
+
 std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::DeviceContext &context)
 {
     return std::move(m_meshes);

@@ -19,11 +19,20 @@ class TerrainObject : public star::StarObject
 
     virtual star::PipelineProvider getPipelineProvider(vk::PipelineLayout pipelineLayout) override;
 
+    void setRenderShapeType(rendering::Type type)
+    {
+        m_shapeRenderingMode = type;
+    }
+
+    virtual void recordRenderPassCommands(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout,
+                                          uint8_t swapChainIndexNum, uint64_t frameIndex) override;
+
   protected:
     std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
 
   private:
     ColoringMode m_colorDrawMode;
     std::vector<star::StarMesh> m_meshes;
+    rendering::Type m_shapeRenderingMode{rendering::Type::Real};
 };
 } // namespace star::terrain
