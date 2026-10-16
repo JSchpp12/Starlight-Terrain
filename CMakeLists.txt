@@ -6,13 +6,6 @@ project(starlight_terrain
     VERSION 1.0.14
 )
 
-option(STARLIGHT_TERRAIN_BUILD_SHARED "Build as shared library" OFF)
-
-set(LIBTYPE STATIC)
-if(STARLIGHT_TERRAIN_BUILD_SHARED)
-    set(LIBTYPE SHARED)
-endif()
-
 find_package(GDAL CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(TBB CONFIG REQUIRED)
@@ -106,7 +99,7 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/CoverageInfo_json.cpp
 )
 
-add_library(${PROJECT_NAME} ${LIBTYPE}
+add_library(${PROJECT_NAME} STATIC
     ${${PROJECT_NAME}_HEADERS}
     ${${PROJECT_NAME}_SOURCES}
 )
@@ -209,9 +202,19 @@ foreach(_c ${_STARLIGHT_TERRAIN_PROJ_CANDIDATES})
         break()
     endif()
 endforeach()
+# Consumers can group this runtime data with the rest of their runtime
+# artifacts (e.g. by setting STARLIGHT_TERRAIN_RUNTIME_COMPONENT to "Runtime"
+# before add_subdirectory()).  Defaults to "Runtime" so component-based
+# installers pick it up automatically.
+if(NOT DEFINED STARLIGHT_TERRAIN_RUNTIME_COMPONENT)
+    set(STARLIGHT_TERRAIN_RUNTIME_COMPONENT "Runtime" CACHE STRING
+        "Install component used for Starlight-Terrain runtime data (e.g. PROJ)")
+endif()
+
 if(_STARLIGHT_TERRAIN_PROJ_DATA_DIR)
     install(DIRECTORY "${_STARLIGHT_TERRAIN_PROJ_DATA_DIR}/"
             DESTINATION "${CMAKE_INSTALL_DATADIR}/proj"
+            COMPONENT "${STARLIGHT_TERRAIN_RUNTIME_COMPONENT}"
             FILES_MATCHING
                 PATTERN "proj.db"
                 PATTERN "proj.ini"
