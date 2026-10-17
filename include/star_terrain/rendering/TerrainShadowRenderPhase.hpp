@@ -76,15 +76,15 @@ class TerrainShadowRenderPhase : public star::core::renderer::RenderPhase
     vk::RenderingAttachmentInfo prepareDynamicRenderingInfoDepthAttachment(
         const star::common::FrameTracker &frameTracker);
 
-    virtual void recordPreRenderPassCommands(vk::CommandBuffer &buffer,
+    virtual void recordPreRenderPassCommands(vk::CommandBuffer buffer,
                                              const star::common::FrameTracker &frameTracker) override;
 
-    virtual void recordCommands(vk::CommandBuffer &commandBuffer, const star::common::FrameTracker &frameTracker,
-                                const uint64_t &frameIndex);
-    virtual void recordRenderingCalls(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
-                                      const uint64_t &frameIndex) override;
-    void recordCommandBufferDependencies(vk::CommandBuffer &commandBuffer,
-                                         const star::common::FrameTracker &frameTracker, const uint64_t &frameIndex);
+    virtual void recordCommands(vk::CommandBuffer commandBuffer, const star::common::FrameTracker &frameTracker,
+                                uint64_t frameIndex);
+    virtual void recordRenderingCalls(vk::CommandBuffer commandBuffer, uint8_t frameInFlightIndex,
+                                      uint64_t frameIndex) override;
+    void recordCommandBufferDependencies(vk::CommandBuffer commandBuffer,
+                                         const star::common::FrameTracker &frameTracker, uint64_t frameIndex);
 
     virtual std::optional<star::core::device::manager::ManagerCommandBuffer::BufferSubmissionOverride>
     getSubmissionOverride() override;
