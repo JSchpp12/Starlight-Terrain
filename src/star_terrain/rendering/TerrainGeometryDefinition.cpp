@@ -20,13 +20,11 @@
 
 namespace star::terrain::rendering
 {
-namespace
-{
 /// Load every chunk as full geometry on worker threads, then upload the payloads to GPU buffers on the main thread.
-std::vector<ChunkMeshDescription> buildGeometryMeshDescriptions(core::device::DeviceContext &context,
-                                                                const std::filesystem::path &heightFilePath,
-                                                                std::vector<ChunkInfo> chunks,
-                                                                const glm::dvec3 &worldCenter)
+static std::vector<ChunkMeshDescription> buildGeometryMeshDescriptions(core::device::DeviceContext &context,
+                                                                       const std::filesystem::path &heightFilePath,
+                                                                       std::vector<ChunkInfo> chunks,
+                                                                       const glm::dvec3 &worldCenter)
 {
     TerrainShapeLoader<LoadFullGeometry> loader(heightFilePath, std::move(chunks), worldCenter);
     auto loadedChunks = loader();
@@ -53,7 +51,6 @@ std::vector<ChunkMeshDescription> buildGeometryMeshDescriptions(core::device::De
 
     return meshDescriptions;
 }
-} // namespace
 
 TerrainGeometryDefinition::TerrainGeometryDefinition(std::vector<ChunkMeshDescription> meshDescriptions,
                                                      std::filesystem::path terrainDir,

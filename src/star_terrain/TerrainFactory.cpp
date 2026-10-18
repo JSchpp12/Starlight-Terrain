@@ -6,7 +6,9 @@
 
 #include <starlight/ShaderResolver.hpp>
 #include <starlight/command/CreateObject.hpp>
+#include <starlight/command/FileIO/GetPath.hpp>
 #include <starlight/common/materials/TextureMaterial.hpp>
+#include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/object/StarObject.hpp>
 #include <starlight/virtual/StarMesh.hpp>
@@ -67,6 +69,19 @@ static std::vector<star::StarMesh> loadMeshes(core::device::DeviceContext &conte
     return terrainMeshes;
 }
 
+static std::filesystem::path ResolveDirectory(core::CommandBus &cmdBus, const std::filesystem::path &candidate)
+{
+    star::command::file_io::GetPath cmd;
+    cmd.setCandidate(candidate).setKind(star::io::PathKind::directory);
+    cmdBus.submit(cmd);
+    const auto reply = cmd.getReply().get();
+    if (!reply)
+    {
+        STAR_THROW("TerrainFactory failed to resolve directory: " + reply.error().toString());
+    }
+    return reply.value();
+}
+
 TerrainFactory::Output TerrainFactory::buildTerrains(core::device::DeviceContext &context,
                                                      const rendering::TerrainGeometryDefinition &geometry,
                                                      const std::filesystem::path &shaderDir,
@@ -74,22 +89,29 @@ TerrainFactory::Output TerrainFactory::buildTerrains(core::device::DeviceContext
 {
     Output output;
 
-    star::ShaderResolver colorResolver = star::ShaderResolver::Builder{context.getCmdBus()}
-                                             .setShader(star::Shader_Stage::vertex, (shaderDir / "color.vert").string())
-                                             .setShader(star::Shader_Stage::fragment, (shaderDir / "color.frag").string())
-                                             .build();
-    output.colorTerrain =
-        buildTerrain(context, geometry, std::move(colorResolver), "terrain_color", false, aggressiveTextureLoading);
+    const std::filesystem::path resolvedShaderDir = ResolveDirectory(context.getCmdBus(), shaderDir);
 
-    star::ShaderResolver shadowResolver = star::ShaderResolver::Builder{context.getCmdBus()}
-                                              .setShader(star::Shader_Stage::vertex, (shaderDir / "shadow_cast.vert").string())
-                                              .setShader(star::Shader_Stage::fragment, (shaderDir / "shadow_cast.frag").string())
-                                              .build();
-    output.greyscaleTerrain = buildTerrain(context, geometry, std::move(shadowResolver), "terrain_depth", true,
+    rendering::TerrainGeometryDefinition resolvedGeometry = geometry;
+    resolvedGeometry.terrainDir = ResolveDirectory(context.getCmdBus(), geometry.terrainDir);
+
+    star::ShaderResolver colorResolver =
+        star::ShaderResolver::Builder{context.getCmdBus()}
+            .setShader(star::Shader_Stage::vertex, (resolvedShaderDir / "color.vert").string())
+            .setShader(star::Shader_Stage::fragment, (resolvedShaderDir / "color.frag").string())
+            .build();
+    output.colorTerrain = buildTerrain(context, resolvedGeometry, std::move(colorResolver), "terrain_color", false,
+                                       aggressiveTextureLoading);
+
+    star::ShaderResolver shadowResolver =
+        star::ShaderResolver::Builder{context.getCmdBus()}
+            .setShader(star::Shader_Stage::vertex, (resolvedShaderDir / "shadow_cast.vert").string())
+            .setShader(star::Shader_Stage::fragment, (resolvedShaderDir / "shadow_cast.frag").string())
+            .build();
+    output.greyscaleTerrain = buildTerrain(context, resolvedGeometry, std::move(shadowResolver), "terrain_depth", true,
                                            aggressiveTextureLoading);
 
-    output.shapeFilePath = geometry.terrainDir / "Shape.json";
-    output.defaultRenderingType = geometry.defaultRenderType;
+    output.shapeFilePath = resolvedGeometry.terrainDir / "Shape.json";
+    output.defaultRenderingType = resolvedGeometry.defaultRenderType;
     return output;
 }
 

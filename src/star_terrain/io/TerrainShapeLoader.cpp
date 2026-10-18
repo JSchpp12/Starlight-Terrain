@@ -61,7 +61,5 @@ std::vector<std::expected<typename PolicyT::Payload, ChunkLoadError>> TerrainSha
     return results;
 }
 
-// The representation set is closed; instantiate the concrete loaders here so
-// the implementation stays out of the header.
 template class TerrainShapeLoader<LoadFullGeometry>;
 } // namespace star::terrain
