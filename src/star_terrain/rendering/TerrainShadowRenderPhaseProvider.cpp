@@ -54,11 +54,12 @@ static const star::ManagerController::RenderResource::GlobalInfo *GetMainGlobalI
 static std::shared_ptr<star::core::renderer::FrameData> CreateShadowFrameData(
     star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights,
     const star::ManagerController::RenderResource::GlobalInfo *mainCamController,
-    const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController) noexcept
+    const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController,
+    star::terrain::rendering::ShadowWindowBoundsProvider *windowBoundsProvider) noexcept
 {
     auto cameraController = std::make_shared<star::terrain::rendering::ShadowCameraController>(
         context.frameTracker().getSetup().getNumFramesInFlight(), lights, 0, std::array<uint32_t, 2>{2048, 2048},
-        mainCamController, instanceModelInfoController);
+        mainCamController, instanceModelInfoController, windowBoundsProvider);
     auto fd = std::make_shared<star::core::renderer::FrameData>();
     fd->add(std::move(cameraController),
             star::core::renderer::roleHandle(star::terrain::rendering::data_roles::ShadowLightProjections));
@@ -68,10 +69,11 @@ static std::shared_ptr<star::core::renderer::FrameData> CreateShadowFrameData(
 TerrainShadowRenderPhaseProvider::TerrainShadowRenderPhaseProvider(
     star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights,
     std::vector<std::shared_ptr<star::StarObject>> objects, star::Handle mainTerrainRenderPhaseRegistration,
-    bool enableShadowCasting, star::Command_Buffer_Order_Index order)
+    bool enableShadowCasting, star::Command_Buffer_Order_Index order,
+    star::terrain::rendering::ShadowWindowBoundsProvider *windowBoundsProvider)
     : m_objects(std::move(objects)), m_lights(std::move(lights)),
       m_mainTerrainRenderRegistration(std::move(mainTerrainRenderPhaseRegistration)),
-      m_enableShadowCasting(enableShadowCasting)
+      m_enableShadowCasting(enableShadowCasting), m_windowBoundsProvider(windowBoundsProvider)
 {
     m_config.order = star::Command_Buffer_Order::before_render_pass;
     m_config.orderIndex = order;
@@ -275,7 +277,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
         assert(!phase->m_objects.empty() && "Shadow-cast terrain must always be provided");
         const auto *mainCamera = GetMainGlobalInfo(phases, m_mainTerrainRenderRegistration);
         auto *instanceModel = &phase->m_objects.front()->getInstanceModelController();
-        phase->m_frameData = CreateShadowFrameData(c, m_lights, mainCamera, instanceModel);
+        phase->m_frameData = CreateShadowFrameData(c, m_lights, mainCamera, instanceModel, m_windowBoundsProvider);
     }
 
     phase->setDataRolesOwned(shadowLightProjDataRole);

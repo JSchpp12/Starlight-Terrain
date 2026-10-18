@@ -11,6 +11,8 @@ class InstanceModelInfo;
 
 namespace star::terrain::rendering
 {
+class ShadowWindowBoundsProvider;
+
 class ShadowCameraController : public star::ManagerController::RenderResource::Buffer
 {
   public:
@@ -18,7 +20,8 @@ class ShadowCameraController : public star::ManagerController::RenderResource::B
         uint8_t numFramesInFlight, std::shared_ptr<std::vector<Light>> lights, uint8_t mainLightIndex,
         std::array<uint32_t, 2> shadowMapResolution,
         const star::ManagerController::RenderResource::GlobalInfo *mainRenderCameraController,
-        const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController);
+        const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController,
+        ShadowWindowBoundsProvider *windowBoundsProvider = nullptr);
     virtual ~ShadowCameraController() = default;
     ShadowCameraController(const ShadowCameraController &) = default;
     ShadowCameraController &operator=(const ShadowCameraController &) = default;
@@ -36,6 +39,7 @@ class ShadowCameraController : public star::ManagerController::RenderResource::B
     std::array<uint32_t, 2> m_shadowMapResolution;
     const star::ManagerController::RenderResource::GlobalInfo *m_mainRenderCameraController{nullptr};
     const star::ManagerController::RenderResource::InstanceModelInfo *m_instanceModelInfoController{nullptr};
+    ShadowWindowBoundsProvider *m_windowBoundsProvider{nullptr};
     uint8_t m_mainLightIndex;
 };
 } // namespace star::terrain::rendering

@@ -1,5 +1,7 @@
 #include "star_terrain/rendering/ShadowCasterInfo.hpp"
 
+#include "star_terrain/rendering/ShadowWindowBounds.hpp"
+
 #include <starlight/common/entities/Light.hpp>
 #include <starlight/virtual/StarCamera.hpp>
 
@@ -142,6 +144,55 @@ glm::mat4 ShadowCasterInfo::getShadowLightProjectionWithTexelSnapping(
 
     const glm::mat4 lightView =
         glm::translate(glm::mat4(1.0f), glm::vec3(-c.x, -c.y, -c.z - radius - params.casterPadding)) * lightRot;
+
+    auto proj = glm::ortho(-radius, radius, -radius, radius, 0.0f, depthRange);
+    proj[1][1] *= -1;
+    return proj * lightView;
+}
+
+glm::mat4 ShadowCasterInfo::getShadowLightProjectionForWindowBounds(
+    const LightProjectionParams &params, const ShadowWindowBounds &windowBounds) const noexcept
+{
+    const glm::mat4 lightRot = GetLightRotation(m_shadowLightDirection);
+
+    // Region AABB in light-rotation space. Light space +z faces the sun, so the largest z corner is
+    // the sunward face and the smallest z corner is the light-facing face (the one toward the ground).
+    glm::vec3 mn(std::numeric_limits<float>::max());
+    glm::vec3 mx(-std::numeric_limits<float>::max());
+    for (int corner = 0; corner < 8; ++corner)
+    {
+        const glm::vec3 worldCorner{((corner & 1) != 0) ? windowBounds.max.x : windowBounds.min.x,
+                                    ((corner & 2) != 0) ? windowBounds.max.y : windowBounds.min.y,
+                                    ((corner & 4) != 0) ? windowBounds.max.z : windowBounds.min.z};
+        const glm::vec3 lightCorner = glm::vec3(lightRot * glm::vec4(worldCorner, 1.0f));
+        mn = glm::min(mn, lightCorner);
+        mx = glm::max(mx, lightCorner);
+    }
+
+    // xy window: cover the region with a small safety margin (snapping the center can only shrink the
+    // covered area, never grow it), then quantize like the frustum-sphere fit so the texel size can
+    // never wobble between frames.
+    float radius = 0.5f * glm::max(mx.x - mn.x, mx.y - mn.y) * 1.05f;
+    radius = std::ceil(radius * 16.0f) / 16.0f;
+
+    glm::vec3 c = (mn + mx) * 0.5f;
+    const float extents[2] = {2.0f * radius, 2.0f * radius};
+    for (int i = 0; i < 2; ++i)
+    {
+        if (params.resolution[i] == 0)
+            continue;
+        const float step = extents[i] / static_cast<float>(params.resolution[i]);
+        c[i] = std::floor(c[i] / step) * step;
+    }
+
+    // Depth window: start just sunward of the region and end past its light-facing face by the caster
+    // padding so the geometry below it still lands in the depth range. The eye sits a little above
+    // the sunward face instead of grazing it so near geometry is never clipped by the near plane.
+    const float nearMargin = glm::max(1.0f, 0.05f * (mx.z - mn.z));
+    const float eyeZ = mx.z + nearMargin;
+    const float depthRange = (mx.z - mn.z) + nearMargin + windowBounds.casterPadding;
+
+    const glm::mat4 lightView = glm::translate(glm::mat4(1.0f), glm::vec3(-c.x, -c.y, -eyeZ)) * lightRot;
 
     auto proj = glm::ortho(-radius, radius, -radius, radius, 0.0f, depthRange);
     proj[1][1] *= -1;

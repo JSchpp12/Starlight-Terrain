@@ -12,6 +12,8 @@ class Light;
 
 namespace star::terrain::rendering
 {
+struct ShadowWindowBounds;
+
 class ShadowCasterInfo
 {
   public:
@@ -33,6 +35,13 @@ class ShadowCasterInfo
     FrustumCornerInfo getLightCameraFrustumInfo() const noexcept;
     void transformToLightSpace(FrustumCornerInfo &workingInfo) const noexcept;
     glm::mat4 getShadowLightProjectionWithTexelSnapping(const LightProjectionParams &params) const noexcept;
+
+    /// Fit the shadow window to the given world bounds instead of the main camera's view sphere.
+    /// The xy window covers the region (snapped to the depth-map texel grid); the depth window runs
+    /// from just sunward of the region down past its light-facing face by bounds.casterPadding so
+    /// the geometry below it still lands in the depth range.
+    glm::mat4 getShadowLightProjectionForWindowBounds(const LightProjectionParams &params,
+                                                      const ShadowWindowBounds &windowBounds) const noexcept;
 
   private:
     const star::StarCamera &m_worldCamera;
