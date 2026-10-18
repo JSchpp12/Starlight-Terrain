@@ -21,7 +21,7 @@ class ShadowCameraController : public star::ManagerController::RenderResource::B
         std::array<uint32_t, 2> shadowMapResolution,
         const star::ManagerController::RenderResource::GlobalInfo *mainRenderCameraController,
         const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController,
-        ShadowWindowBoundsProvider *windowBoundsProvider = nullptr);
+        ShadowWindowBoundsProvider *windowBoundsProvider = nullptr, float shadowCasterPadding = 512.0f);
     virtual ~ShadowCameraController() = default;
     ShadowCameraController(const ShadowCameraController &) = default;
     ShadowCameraController &operator=(const ShadowCameraController &) = default;
@@ -40,6 +40,7 @@ class ShadowCameraController : public star::ManagerController::RenderResource::B
     const star::ManagerController::RenderResource::GlobalInfo *m_mainRenderCameraController{nullptr};
     const star::ManagerController::RenderResource::InstanceModelInfo *m_instanceModelInfoController{nullptr};
     ShadowWindowBoundsProvider *m_windowBoundsProvider{nullptr};
+    float m_shadowCasterPadding;
     uint8_t m_mainLightIndex;
 };
 } // namespace star::terrain::rendering

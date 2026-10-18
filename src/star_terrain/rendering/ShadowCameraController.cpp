@@ -15,11 +15,11 @@ ShadowCameraController::ShadowCameraController(
     std::array<uint32_t, 2> shadowMapResolution,
     const star::ManagerController::RenderResource::GlobalInfo *mainRenderCameraController,
     const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController,
-    ShadowWindowBoundsProvider *windowBoundsProvider)
+    ShadowWindowBoundsProvider *windowBoundsProvider, float shadowCasterPadding)
     : m_lastLightDirections(static_cast<size_t>(numFramesInFlight)), m_lights(std::move(lights)),
       m_shadowMapResolution(std::move(shadowMapResolution)), m_mainRenderCameraController(mainRenderCameraController),
       m_instanceModelInfoController(instanceModelInfoController), m_windowBoundsProvider(windowBoundsProvider),
-      m_mainLightIndex(mainLightIndex)
+      m_shadowCasterPadding(shadowCasterPadding), m_mainLightIndex(mainLightIndex)
 {
 }
 
@@ -55,14 +55,15 @@ std::unique_ptr<TransferRequest::Buffer> ShadowCameraController::createTransferR
 
     m_lastLightDirections[frameInFlightIndex] = dir;
 
-    ShadowCameraTransfer::Builder builder;
-    builder.setLightDir(dir)
-        .setStarCamera(*m_mainRenderCameraController->getCamera())
-        .setShadowMapResolution(m_shadowMapResolution);
+    auto builder = ShadowCameraTransfer::Builder()
+                       .setLightDir(dir)
+                       .setStarCamera(*m_mainRenderCameraController->getCamera())
+                       .setShadowMapResolution(m_shadowMapResolution)
+                       .setCasterPadding(m_shadowCasterPadding);
 
     if (m_windowBoundsProvider != nullptr)
     {
-        ShadowWindowBounds bounds;
+        BoundsDefinition bounds;
         if (m_windowBoundsProvider->getShadowWindowBounds(bounds))
         {
             builder.setShadowWindowBounds(bounds);
