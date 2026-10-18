@@ -1,4 +1,4 @@
-#include "star_terrain/rendering/ShadowCasterInfo.hpp"
+#include "star_terrain/rendering/ShadowFrustumCalculator.hpp"
 
 #include <starlight/common/entities/Light.hpp>
 #include <starlight/virtual/StarCamera.hpp>
@@ -11,7 +11,8 @@
 
 namespace star::terrain::rendering
 {
-ShadowCasterInfo::ShadowCasterInfo(const star::StarCamera &worldCamera, const glm::vec3 &shadowLightDirection)
+ShadowFrustumCalculator::ShadowFrustumCalculator(const star::StarCamera &worldCamera,
+                                                 const glm::vec3 &shadowLightDirection)
     : m_worldCamera(worldCamera), m_shadowLightDirection(shadowLightDirection)
 {
 }
@@ -55,7 +56,7 @@ static glm::vec3 PickLightUpDirection(const glm::vec3 &forward) noexcept
 
 // Rotation only (eye at origin). This is the fixed "light space" used for snapping and for
 // building light-space fit targets (BoundsDefinition::Builder::asSphere).
-glm::mat4 ShadowCasterInfo::getLightRotation(const glm::vec3 &lightDirection) noexcept
+glm::mat4 ShadowFrustumCalculator::getLightRotation(const glm::vec3 &lightDirection) noexcept
 {
     const glm::vec3 forward = glm::normalize(lightDirection);
     return glm::lookAt(glm::vec3(0.0f), forward, PickLightUpDirection(forward));
@@ -81,14 +82,14 @@ static std::array<glm::vec3, 8> ApplyTransformToCorners(const std::array<glm::ve
     return lightSpaceCorners;
 }
 
-ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getLightCameraFrustumInfo() const noexcept
+ShadowFrustumCalculator::FrustumCornerInfo ShadowFrustumCalculator::getLightCameraFrustumInfo() const noexcept
 {
     auto info = getMainCameraFrustumInfo();
     transformToLightSpace(info);
     return info;
 }
 
-ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getMainCameraFrustumInfo() const noexcept
+ShadowFrustumCalculator::FrustumCornerInfo ShadowFrustumCalculator::getMainCameraFrustumInfo() const noexcept
 {
     FrustumCornerInfo info{.corners = GetNDFrustumCorners(), .center = glm::vec3{0.0f}, .viewSphereRadius = 0.0f};
 
@@ -114,15 +115,15 @@ ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getMainCameraFrustumInfo()
     return info;
 }
 
-void ShadowCasterInfo::transformToLightSpace(FrustumCornerInfo &workingInfo) const noexcept
+void ShadowFrustumCalculator::transformToLightSpace(FrustumCornerInfo &workingInfo) const noexcept
 {
     const auto lightView = GetLightView(workingInfo.center, m_shadowLightDirection, workingInfo.viewSphereRadius);
     workingInfo.corners = ApplyTransformToCorners(workingInfo.corners, lightView);
     workingInfo.center = glm::vec3(lightView * glm::vec4(workingInfo.center, 1.0f));
 }
 
-glm::mat4 ShadowCasterInfo::getShadowLightProjectionForBounds(const BoundsDefinition &bounds,
-                                                             const LightProjectionParams &params) const noexcept
+glm::mat4 ShadowFrustumCalculator::getShadowLightProjectionForBounds(const BoundsDefinition &bounds,
+                                                                     const LightProjectionParams &params) const noexcept
 {
     const auto &fitPoints = bounds.getFitPoints();
     assert(!fitPoints.empty() && "Fit needs at least one point");

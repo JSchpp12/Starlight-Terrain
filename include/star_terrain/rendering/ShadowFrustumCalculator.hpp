@@ -12,7 +12,7 @@ class Light;
 
 namespace star::terrain::rendering
 {
-class ShadowCasterInfo
+class ShadowFrustumCalculator
 {
   public:
     struct FrustumCornerInfo
@@ -27,7 +27,7 @@ class ShadowCasterInfo
         float casterPadding{0.0f};                         // extra depth past the fit target's light-facing face
     };
 
-    ShadowCasterInfo(const star::StarCamera &worldCamera, const glm::vec3 &shadowLightDirection);
+    ShadowFrustumCalculator(const star::StarCamera &worldCamera, const glm::vec3 &shadowLightDirection);
     FrustumCornerInfo getMainCameraFrustumInfo() const noexcept;
     FrustumCornerInfo getLightCameraFrustumInfo() const noexcept;
     void transformToLightSpace(FrustumCornerInfo &workingInfo) const noexcept;

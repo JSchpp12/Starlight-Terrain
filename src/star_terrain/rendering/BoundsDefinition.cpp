@@ -1,6 +1,6 @@
 #include "star_terrain/rendering/BoundsDefinition.hpp"
 
-#include "star_terrain/rendering/ShadowCasterInfo.hpp"
+#include "star_terrain/rendering/ShadowFrustumCalculator.hpp"
 
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/virtual/StarCamera.hpp>
@@ -32,7 +32,7 @@ BoundsDefinition::Builder &BoundsDefinition::Builder::asSphere(const glm::vec3 &
     // between frames.
     radius = std::ceil(radius * 16.0f) / 16.0f;
 
-    const glm::mat4 lightRot = ShadowCasterInfo::getLightRotation(lightDirection);
+    const glm::mat4 lightRot = ShadowFrustumCalculator::getLightRotation(lightDirection);
     const glm::vec3 centerInLight = glm::vec3(lightRot * glm::vec4(center, 1.0f));
     const glm::mat3 lightToWorld = glm::transpose(glm::mat3(lightRot)); // orthonormal rotation: transpose inverts
 
@@ -50,7 +50,7 @@ BoundsDefinition::Builder &BoundsDefinition::Builder::asSphere(const glm::vec3 &
 BoundsDefinition::Builder &BoundsDefinition::Builder::asCameraFrustumSphere(const star::StarCamera &worldCamera,
                                                                             const glm::vec3 &lightDirection)
 {
-    const ShadowCasterInfo calculator{worldCamera, lightDirection};
+    const ShadowFrustumCalculator calculator{worldCamera, lightDirection};
     const auto frustumInfo = calculator.getMainCameraFrustumInfo();
     return asSphere(frustumInfo.center, frustumInfo.viewSphereRadius, lightDirection);
 }

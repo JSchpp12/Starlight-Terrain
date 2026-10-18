@@ -1,6 +1,6 @@
 #include "star_terrain/rendering/ShadowCameraTransfer.hpp"
 
-#include "star_terrain/rendering/ShadowCasterInfo.hpp"
+#include "star_terrain/rendering/ShadowFrustumCalculator.hpp"
 
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/glm.hpp>
@@ -77,7 +77,7 @@ std::unique_ptr<StarBuffers::Buffer> ShadowCameraTransfer::createFinal(
 ShadowCameraTransfer::ShadowCameraInfo ShadowCameraTransfer::getCameraInfo() const noexcept
 {
     star::StarCamera workingCamera = star::StarCamera(m_calculationInfo.mainRenderCamera);
-    ShadowCasterInfo calculator{workingCamera, m_calculationInfo.lightDirection};
+    ShadowFrustumCalculator calculator{workingCamera, m_calculationInfo.lightDirection};
     const std::array<uint32_t, 3> fullResDef{m_calculationInfo.shadowMapResolution[0],
                                              m_calculationInfo.shadowMapResolution[1], 0};
 

@@ -13,7 +13,7 @@ class StarCamera;
 
 namespace star::terrain::rendering
 {
-class ShadowCasterInfo;
+class ShadowFrustumCalculator;
 
 /// @brief The fit target for the shadow window: world-space points the texel-snapped ortho shadow
 /// window must cover. Built through BoundsDefinition::Builder -- every way of describing the target
