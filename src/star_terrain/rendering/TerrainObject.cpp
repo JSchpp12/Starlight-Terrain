@@ -34,7 +34,7 @@ void TerrainObject::recordRenderPassCommands(vk::CommandBuffer commandBuffer, vk
 {
     switch (m_shapeRenderingMode)
     {
-    case rendering::Type::Flat:
+    case rendering::ElevationType::Flat:
         break;
     default:
         this->StarObject::recordRenderPassCommands(commandBuffer, pipelineLayout, swapChainIndexNum, frameIndex);

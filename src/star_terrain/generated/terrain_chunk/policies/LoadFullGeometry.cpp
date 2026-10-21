@@ -14,8 +14,9 @@
 namespace star::terrain
 {
 
-LoadFullGeometry::LoadFullGeometry(TargetChunkInfo chunkInfo, GDALDataset *sharedDataset)
-    : m_chunkInfo(std::move(chunkInfo)), m_sharedDataset(sharedDataset)
+LoadFullGeometry::LoadFullGeometry(TargetChunkInfo chunkInfo, rendering::ElevationType elevationType,
+                                   GDALDataset *sharedDataset)
+    : m_chunkInfo(std::move(chunkInfo)), m_elevationType(elevationType), m_sharedDataset(sharedDataset)
 {
 }
 
@@ -27,7 +28,7 @@ LoadedGeometry LoadFullGeometry::operator()() const
         TerrainDataset(m_sharedDataset, m_chunkInfo.northEast, m_chunkInfo.southEast, m_chunkInfo.southWest,
                        m_chunkInfo.northWest, m_chunkInfo.center, m_chunkInfo.offset);
 
-    LoadedGeometry loaded = loadGeomInfo(dataset);
+    LoadedGeometry loaded = loadGeomInfo(dataset, m_elevationType);
 
     // Compute the bounds here (worker thread) so the upload step stays pure GPU work.
     loaded.bbMin = glm::vec3{std::numeric_limits<float>::max()};
@@ -246,7 +247,15 @@ void LoadFullGeometry::centerAroundTerrainOrigin(std::vector<glm::dvec3> &vertPo
     }
 }
 
-LoadedGeometry LoadFullGeometry::loadGeomInfo(TerrainDataset &dataset)
+static void FlattenToHeightZero(std::vector<glm::dvec3> &vertPositions)
+{
+    for (auto &vertPosition : vertPositions)
+    {
+        vertPosition.y = 0.0;
+    }
+}
+
+LoadedGeometry LoadFullGeometry::loadGeomInfo(TerrainDataset &dataset, rendering::ElevationType elevationType)
 {
     std::vector<glm::dvec3> rawVertPositionCoords = std::vector<glm::dvec3>();
     std::vector<glm::vec2> vertTextureCoords = std::vector<glm::vec2>();
@@ -255,6 +264,11 @@ LoadedGeometry LoadFullGeometry::loadGeomInfo(TerrainDataset &dataset)
     loadLocation(dataset, rawVertPositionCoords, vertTextureCoords);
     loadInds(dataset, loaded.inds);
     centerAroundTerrainOrigin(rawVertPositionCoords, dataset.getOffset());
+
+    if (elevationType != rendering::ElevationType::Real)
+    {
+        FlattenToHeightZero(rawVertPositionCoords);
+    }
 
     loaded.verts.reserve(rawVertPositionCoords.size());
     for (size_t i = 0; i < rawVertPositionCoords.size(); i++)

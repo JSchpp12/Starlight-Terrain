@@ -1,10 +1,10 @@
 #pragma once
 
+#include "star_terrain/io/DatasetHandle.hpp"
+
 #include <expected>
 #include <filesystem>
 #include <string>
-
-class GDALDataset;
 
 namespace star::terrain
 {
@@ -20,13 +20,16 @@ struct GDALLoadError
     std::string detail;
 };
 
+/// @brief Registers all GDAL drivers exactly once for the process.
+void EnsureGDALRegistered();
+
 /// Acquires a read-only GDAL dataset for a height raster.
 class GDALDatasetLoader
 {
   public:
     GDALDatasetLoader(std::filesystem::path heightFilePath);
 
-    std::expected<GDALDataset *, GDALLoadError> operator()() const;
+    std::expected<DatasetHandle, GDALLoadError> operator()() const;
 
   private:
     std::filesystem::path m_heightFilePath;

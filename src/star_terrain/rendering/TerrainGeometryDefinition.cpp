@@ -20,13 +20,21 @@
 
 namespace star::terrain::rendering
 {
-/// Load every chunk as full geometry on worker threads, then upload the payloads to GPU buffers on the main thread.
+
+/// @brief Load every chunk as full geometry on worker threads, then upload the payloads to GPU buffers on the main
+/// thread.
+/// @param context
+/// @param heightFilePath
+/// @param chunks
+/// @param worldCenter
+/// @return
 static std::vector<ChunkMeshDescription> buildGeometryMeshDescriptions(core::device::DeviceContext &context,
                                                                        const std::filesystem::path &heightFilePath,
                                                                        std::vector<ChunkInfo> chunks,
-                                                                       const glm::dvec3 &worldCenter)
+                                                                       const glm::dvec3 &worldCenter,
+                                                                       ElevationType elevationType)
 {
-    TerrainShapeLoader<LoadFullGeometry> loader(heightFilePath, std::move(chunks), worldCenter);
+    TerrainShapeLoader<LoadFullGeometry> loader(heightFilePath, std::move(chunks), worldCenter, elevationType);
     auto loadedChunks = loader();
 
     std::vector<ChunkMeshDescription> meshDescriptions;
@@ -54,7 +62,8 @@ static std::vector<ChunkMeshDescription> buildGeometryMeshDescriptions(core::dev
 
 TerrainGeometryDefinition::TerrainGeometryDefinition(std::vector<ChunkMeshDescription> meshDescriptions,
                                                      std::filesystem::path terrainDir,
-                                                     Representation shapeRepresentation, Type defaultRenderType)
+                                                     Representation shapeRepresentation,
+                                                     ElevationType defaultRenderType)
     : meshDescriptions(std::move(meshDescriptions)), terrainDir(std::move(terrainDir)),
       shapeRepresentation(shapeRepresentation), defaultRenderType(std::move(defaultRenderType))
 {
@@ -73,7 +82,8 @@ TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setShape
     return *this;
 }
 
-TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setDefaultRenderType(Type defaultRenderType)
+TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setDefaultRenderType(
+    ElevationType defaultRenderType)
 {
     m_defaultRenderType = std::move(defaultRenderType);
     return *this;
@@ -89,7 +99,7 @@ TerrainGeometryDefinition TerrainGeometryDefinition::Builder::build()
 
     auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(m_terrainDir / "Shape.json", m_context.getCmdBus());
 
-    GDALAllRegister();
+    EnsureGDALRegistered();
 
     CoverageInfo shapeInfo = loadingShapeInfo.get();
     glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
@@ -116,9 +126,10 @@ TerrainGeometryDefinition TerrainGeometryDefinition::Builder::build()
     switch (m_shapeRepresentation)
     {
     case Representation::Geometry:
-        return TerrainGeometryDefinition{
-            buildGeometryMeshDescriptions(m_context, fullHeightFilePath, std::move(fileInfo.chunks), worldCenter),
-            std::move(m_terrainDir), m_shapeRepresentation, m_defaultRenderType};
+        return TerrainGeometryDefinition{buildGeometryMeshDescriptions(m_context, fullHeightFilePath,
+                                                                       std::move(fileInfo.chunks), worldCenter,
+                                                                       m_defaultRenderType),
+                                         std::move(m_terrainDir), m_shapeRepresentation, m_defaultRenderType};
     case Representation::Height_Map:
         STAR_THROW("The height map terrain shape representation is not implemented yet");
     }

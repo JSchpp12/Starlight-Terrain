@@ -19,7 +19,7 @@ class TerrainObject : public star::StarObject
 
     virtual star::PipelineProvider getPipelineProvider(vk::PipelineLayout pipelineLayout) override;
 
-    void setRenderShapeType(rendering::Type type)
+    void setRenderShapeType(rendering::ElevationType type)
     {
         m_shapeRenderingMode = type;
     }
@@ -33,6 +33,6 @@ class TerrainObject : public star::StarObject
   private:
     ColoringMode m_colorDrawMode;
     std::vector<star::StarMesh> m_meshes;
-    rendering::Type m_shapeRenderingMode{rendering::Type::Real};
+    rendering::ElevationType m_shapeRenderingMode{rendering::ElevationType::Real};
 };
 } // namespace star::terrain

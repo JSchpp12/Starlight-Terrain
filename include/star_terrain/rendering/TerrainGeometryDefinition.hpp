@@ -23,7 +23,7 @@ class TerrainGeometryDefinition
     std::filesystem::path terrainDir;
     /// Shape representation that produced this definition's GPU resources.
     Representation shapeRepresentation;
-    Type defaultRenderType;
+    ElevationType defaultRenderType;
 
     class Builder
     {
@@ -33,21 +33,21 @@ class TerrainGeometryDefinition
         }
         Builder &setTerrainDir(std::filesystem::path terrainDir);
         Builder &setShapeRepresentation(Representation shapeRepresentation);
-        Builder &setDefaultRenderType(Type defaultRenderType);
+        Builder &setDefaultRenderType(ElevationType defaultRenderType);
         TerrainGeometryDefinition build();
 
       private:
         core::device::DeviceContext &m_context;
         std::filesystem::path m_terrainDir;
         Representation m_shapeRepresentation{Representation::Geometry};
-        Type m_defaultRenderType{Type::Flat};
+        ElevationType m_defaultRenderType{ElevationType::Real};
     };
 
   private:
     friend class Builder;
 
     TerrainGeometryDefinition(std::vector<ChunkMeshDescription> meshDescriptions, std::filesystem::path terrainDir,
-                              Representation shapeRepresentation, Type defaultRenderType);
+                              Representation shapeRepresentation, ElevationType defaultRenderType);
 };
 
 } // namespace star::terrain::rendering

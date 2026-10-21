@@ -1,6 +1,7 @@
 #pragma once
 
 #include "star_terrain/io/TargetChunkInfo.hpp"
+#include "star_terrain/rendering/TerrainRenderingType.hpp"
 #include "star_terrain/rendering/geometry/FullTerrainVertex.hpp"
 
 #include <glm/glm.hpp>
@@ -14,8 +15,8 @@ namespace star::terrain
 {
 class TerrainDataset;
 
-/// CPU-side geometry loaded for a single terrain chunk. Vertices are centered around the terrain origin (local ENU
-/// space) and the bounding box is computed by the loader.
+/// @brief CPU-side geometry loaded for a single terrain chunk. Vertices are centered around the terrain origin
+/// (localspace) and the bounding box is computed by the loader. ENU
 struct LoadedGeometry
 {
     std::vector<rendering::geometry::FullTerrainVertex> verts;
@@ -24,13 +25,13 @@ struct LoadedGeometry
     glm::vec3 bbMax{0.0f};
 };
 
-/// @breif Loading policy for the full-geometry terrain shape representation.
+/// @brief Loading policy for the full-geometry terrain shape representation.
 class LoadFullGeometry
 {
   public:
     using Payload = LoadedGeometry;
 
-    LoadFullGeometry(TargetChunkInfo chunkInfo, GDALDataset *sharedDataset);
+    LoadFullGeometry(TargetChunkInfo chunkInfo, rendering::ElevationType elevationType, GDALDataset *sharedDataset);
 
     /// @brief Load the geometry for this chunk from the provided dataset
     LoadedGeometry operator()() const;
@@ -38,27 +39,25 @@ class LoadFullGeometry
   private:
     struct Line
     {
-        // A line is stored by its two endpoint positions (x = lat, y = lon).
-        // Storing the endpoints (instead of a slope/intercept representation
-        // lon = slope*lat + intercept) keeps axis-aligned chunk edges
-        // representable: east-west edges sit at a constant latitude, which
-        // would otherwise give an infinite slope and break intersection.
-        const glm::dvec2 pointA, pointB;
+        /// @brief A line is stored by its two endpoint positions (x = lat, y = lon). representable: east-west edges sit
+        /// at a constant latitude, which would otherwise give an infinite slope and break intersection.
+        glm::dvec2 pointA, pointB;
 
-        Line(const glm::dvec2 &a, const glm::dvec2 &b) : pointA(a), pointB(b)
+        Line(glm::dvec2 a, glm::dvec2 b) : pointA(std::move(a)), pointB(std::move(b))
         {
         }
     };
 
     TargetChunkInfo m_chunkInfo;
-    GDALDataset *m_sharedDataset = nullptr;
+    rendering::ElevationType m_elevationType;
+    GDALDataset *m_sharedDataset{nullptr};
 
     /**
      * @brief Extract height info from the file and calculate vertices
      *
      * @param dataset GDALDataset to use
-     * @param vertPositions
-     * @param vertTextureCoords
+     * @param vertPositions Vector to fill with vertex positions
+     * @param vertTextureCoords Vector to fill with texture coordinates for each vertex
      */
     static void loadLocation(TerrainDataset &dataset, std::vector<glm::dvec3> &vertPositions,
                              std::vector<glm::vec2> &vertTextureCoords);
@@ -73,7 +72,14 @@ class LoadFullGeometry
     /// @param verts all of the vertices to update
     static void centerAroundTerrainOrigin(std::vector<glm::dvec3> &vertPositions, const glm::dvec3 &worldCenterLatLon);
 
-    static LoadedGeometry loadGeomInfo(TerrainDataset &dataset);
+    /// @brief Flatten the terrain to a plane at height 0, keeping the vertex
+    /// positions in the local (X = north, Y = up, Z = east) frame.
+    /// The local Y axis is the terrain's height axis, so every vertex keeps its
+    /// horizontal placement and loses only its elevation.
+    /// @param vertPositions all of the vertices to flatten
+    static void flattenToHeightZero(std::vector<glm::dvec3> &vertPositions);
+
+    static LoadedGeometry loadGeomInfo(TerrainDataset &dataset, rendering::ElevationType elevationType);
 
     static glm::dvec2 calcIntersection(const Line &lineA, const Line &lineB);
 };

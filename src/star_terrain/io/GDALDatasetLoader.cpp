@@ -1,6 +1,7 @@
 #include "star_terrain/io/GDALDatasetLoader.hpp"
 
 #include "star_terrain/generated/terrain_chunk/TerrainTransform.hpp"
+#include "star_terrain/io/DatasetHandle.hpp"
 
 #include <starlight/core/Exceptions.hpp>
 
@@ -10,68 +11,47 @@
 
 #include <cmath>
 #include <memory>
+#include <mutex>
 #include <utility>
 
 namespace star::terrain
 {
-namespace
+void EnsureGDALRegistered()
 {
-/// GDAL does not allow a single dataset to be used concurrently, so each thread
-/// keeps its own handle to the height raster for the lifetime of the thread.
-struct ThreadLocalDataset
-{
-    std::string path;
-    GDALDataset *dataset{nullptr};
-
-    ~ThreadLocalDataset()
-    {
-        if (dataset)
-            GDALClose(dataset);
-    }
-};
-} // namespace
+    static std::once_flag once;
+    std::call_once(once, [] { GDALAllRegister(); });
+}
 
 GDALDatasetLoader::GDALDatasetLoader(std::filesystem::path heightFilePath) : m_heightFilePath(std::move(heightFilePath))
 {
 }
 
-std::expected<GDALDataset *, GDALLoadError> GDALDatasetLoader::operator()() const
+/// @brief Opens the height raster and hands sole ownership to the caller. Each call gets its own handle, so no two
+/// threads ever share a GDALDataset.
+/// @return
+std::expected<DatasetHandle, GDALLoadError> GDALDatasetLoader::operator()() const
 {
-    static thread_local ThreadLocalDataset tls;
+    EnsureGDALRegistered();
 
     const auto path = m_heightFilePath.string();
-    if (tls.dataset != nullptr && tls.path == path)
-        return tls.dataset;
-
-    if (tls.dataset != nullptr)
-    {
-        GDALClose(tls.dataset);
-        tls.dataset = nullptr;
-    }
-
-    GDALAllRegister();
-    tls.dataset = static_cast<GDALDataset *>(GDALOpen(path.c_str(), GA_ReadOnly));
-    if (tls.dataset == nullptr)
+    DatasetHandle dataset;
+    dataset.open(path.c_str());
+    if (!dataset)
     {
         return std::unexpected(
             GDALLoadError{GDALLoadError::Cause::dataset_open_failed, "Failed to open GDAL dataset: " + path});
     }
 
-    tls.path = path;
-    return tls.dataset;
+    return dataset;
 }
 
 double GetHeightAtLocationFromGDAL(const std::string &path, double latDeg, double lonDeg)
 {
-    GDALAllRegister();
+    EnsureGDALRegistered();
 
-    // RAII-managed dataset so every throw/success path closes it exactly once.
-    auto dsDeleter = [](GDALDataset *d) {
-        if (d)
-            GDALClose(d);
-    };
-    std::unique_ptr<GDALDataset, decltype(dsDeleter)> ds(
-        static_cast<GDALDataset *>(GDALOpen(path.c_str(), GA_ReadOnly)), dsDeleter);
+    // Owns the dataset so every throw/success path closes it exactly once.
+    DatasetHandle ds;
+    ds.open(path.c_str());
 
     if (!ds)
     {

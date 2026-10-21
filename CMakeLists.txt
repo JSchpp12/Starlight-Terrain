@@ -58,6 +58,7 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeInfoLoader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TargetChunkInfo.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeLoader.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/DatasetHandle.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/GDALDatasetLoader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/TextureDataInfo.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/texture_data/Reader.hpp

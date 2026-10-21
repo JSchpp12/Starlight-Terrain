@@ -32,15 +32,14 @@ class TerrainFactory
         std::shared_ptr<star::StarObject> colorTerrain;
         std::shared_ptr<star::StarObject> greyscaleTerrain;
         std::filesystem::path shapeFilePath;
-        rendering::Type defaultRenderingType;
+        rendering::ElevationType defaultRenderingType;
     };
 
     /// @param shaderDir Directory holding the terrain shaders. May be a media-relative candidate.
     /// Both this directory and the geometry's terrainDir are resolved through the IOService
     /// (GetPath command) before anything is built; loaders and the reported shapeFilePath
     /// receive the resolved directories.
-    static Output buildTerrains(core::device::DeviceContext &context,
-                                const rendering::TerrainGeometryDefinition &geometry,
+    static Output buildTerrains(core::device::DeviceContext &context, rendering::TerrainGeometryDefinition geometry,
                                 const std::filesystem::path &shaderDir, bool aggressiveTextureLoading);
 
   private:

@@ -83,7 +83,7 @@ static std::filesystem::path ResolveDirectory(core::CommandBus &cmdBus, const st
 }
 
 TerrainFactory::Output TerrainFactory::buildTerrains(core::device::DeviceContext &context,
-                                                     const rendering::TerrainGeometryDefinition &geometry,
+                                                     rendering::TerrainGeometryDefinition geometry,
                                                      const std::filesystem::path &shaderDir,
                                                      bool aggressiveTextureLoading)
 {
@@ -91,27 +91,26 @@ TerrainFactory::Output TerrainFactory::buildTerrains(core::device::DeviceContext
 
     const std::filesystem::path resolvedShaderDir = ResolveDirectory(context.getCmdBus(), shaderDir);
 
-    rendering::TerrainGeometryDefinition resolvedGeometry = geometry;
-    resolvedGeometry.terrainDir = ResolveDirectory(context.getCmdBus(), geometry.terrainDir);
+    geometry.terrainDir = ResolveDirectory(context.getCmdBus(), geometry.terrainDir);
 
     star::ShaderResolver colorResolver =
         star::ShaderResolver::Builder{context.getCmdBus()}
             .setShader(star::Shader_Stage::vertex, (resolvedShaderDir / "color.vert").string())
             .setShader(star::Shader_Stage::fragment, (resolvedShaderDir / "color.frag").string())
             .build();
-    output.colorTerrain = buildTerrain(context, resolvedGeometry, std::move(colorResolver), "terrain_color", false,
-                                       aggressiveTextureLoading);
+    output.colorTerrain =
+        buildTerrain(context, geometry, std::move(colorResolver), "terrain_color", false, aggressiveTextureLoading);
 
     star::ShaderResolver shadowResolver =
         star::ShaderResolver::Builder{context.getCmdBus()}
             .setShader(star::Shader_Stage::vertex, (resolvedShaderDir / "shadow_cast.vert").string())
             .setShader(star::Shader_Stage::fragment, (resolvedShaderDir / "shadow_cast.frag").string())
             .build();
-    output.greyscaleTerrain = buildTerrain(context, resolvedGeometry, std::move(shadowResolver), "terrain_depth", true,
-                                           aggressiveTextureLoading);
+    output.greyscaleTerrain =
+        buildTerrain(context, geometry, std::move(shadowResolver), "terrain_depth", true, aggressiveTextureLoading);
 
-    output.shapeFilePath = resolvedGeometry.terrainDir / "Shape.json";
-    output.defaultRenderingType = resolvedGeometry.defaultRenderType;
+    output.shapeFilePath = geometry.terrainDir / "Shape.json";
+    output.defaultRenderingType = geometry.defaultRenderType;
     return output;
 }
 
