@@ -89,22 +89,20 @@ TerrainFactory::Output TerrainFactory::buildTerrains(core::device::DeviceContext
 {
     Output output;
 
-    const std::filesystem::path resolvedShaderDir = ResolveDirectory(context.getCmdBus(), shaderDir);
-
     geometry.terrainDir = ResolveDirectory(context.getCmdBus(), geometry.terrainDir);
 
     star::ShaderResolver colorResolver =
         star::ShaderResolver::Builder{context.getCmdBus()}
-            .setShader(star::Shader_Stage::vertex, (resolvedShaderDir / "color.vert").string())
-            .setShader(star::Shader_Stage::fragment, (resolvedShaderDir / "color.frag").string())
+            .setShader(star::Shader_Stage::vertex, (shaderDir / "color.vert").string())
+            .setShader(star::Shader_Stage::fragment, (shaderDir / "color.frag").string())
             .build();
     output.colorTerrain =
         buildTerrain(context, geometry, std::move(colorResolver), "terrain_color", false, aggressiveTextureLoading);
 
     star::ShaderResolver shadowResolver =
         star::ShaderResolver::Builder{context.getCmdBus()}
-            .setShader(star::Shader_Stage::vertex, (resolvedShaderDir / "shadow_cast.vert").string())
-            .setShader(star::Shader_Stage::fragment, (resolvedShaderDir / "shadow_cast.frag").string())
+            .setShader(star::Shader_Stage::vertex, (shaderDir / "shadow_cast.vert").string())
+            .setShader(star::Shader_Stage::fragment, (shaderDir / "shadow_cast.frag").string())
             .build();
     output.greyscaleTerrain =
         buildTerrain(context, geometry, std::move(shadowResolver), "terrain_depth", true, aggressiveTextureLoading);
