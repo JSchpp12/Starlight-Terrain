@@ -15,16 +15,10 @@ namespace star::terrain::rendering
 {
 class ShadowFrustumCalculator;
 
-/// @brief The fit target for the shadow window: world-space points the texel-snapped ortho shadow
-/// window must cover. Built through BoundsDefinition::Builder -- every way of describing the target
-/// funnels into one validated point set, so the fit math never depends on how the target was
-/// described.
+/// @brief The fit target for the shadow window: world-space points the texel-snapped ortho shadow window must cover.
 class BoundsDefinition
 {
   public:
-    /// @brief An empty definition -- no points yet. The fit rejects it; getShadowWindowBounds fills one in.
-    BoundsDefinition() = default;
-
     /// Fit targets are small: every construction path yields one box or sphere of exactly 8
     /// corners, so they live in a fixed array -- no heap allocation, including in the hot loop.
     static constexpr std::size_t kMaxFitPoints = 8;
@@ -64,17 +58,20 @@ class BoundsDefinition
         std::size_t m_numFitPoints{0};
     };
 
+    /// @brief An empty definition -- no points yet. The fit rejects it; getShadowWindowBounds fills one in.
+    BoundsDefinition() = default;
+
+    /// @brief Equality feeds the shadow window's change tracking (did the bounds change since last sync).
+    /// @param other Other definition to compare against.
+    /// @return True when both describe the same fit target.
+    bool operator==(const BoundsDefinition &other) const = default;
+
     /// @brief World-space points the shadow window must cover.
     /// @return Span over the fit points.
     std::span<const glm::vec3> getFitPoints() const noexcept
     {
         return {m_fitPoints.data(), m_numFitPoints};
     }
-
-    /// @brief Equality feeds the shadow window's change tracking (did the bounds change since last sync).
-    /// @param other Other definition to compare against.
-    /// @return True when both describe the same fit target.
-    bool operator==(const BoundsDefinition &other) const = default;
 
   private:
     BoundsDefinition(std::array<glm::vec3, kMaxFitPoints> fitPoints, std::size_t numFitPoints)

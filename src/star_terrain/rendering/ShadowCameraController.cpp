@@ -63,12 +63,9 @@ std::unique_ptr<TransferRequest::Buffer> ShadowCameraController::createTransferR
 
     if (m_windowBoundsProvider != nullptr)
     {
-        BoundsDefinition bounds;
-        if (m_windowBoundsProvider->getShadowWindowBounds(bounds))
-        {
-            builder.setShadowWindowBounds(bounds);
-            m_windowBoundsProvider->markShadowWindowBoundsSynced(frameInFlightIndex);
-        }
+        BoundsDefinition bounds = m_windowBoundsProvider->getShadowWindowBounds();
+        builder.setShadowWindowBounds(bounds);
+        m_windowBoundsProvider->markShadowWindowBoundsSynced(frameInFlightIndex);
     }
 
     return std::make_unique<ShadowCameraTransfer>(builder.build());

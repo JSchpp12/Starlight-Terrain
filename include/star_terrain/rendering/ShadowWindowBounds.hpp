@@ -19,7 +19,7 @@ class ShadowWindowBoundsProvider
     /// @brief False when no bounds are available; the caller falls back to the camera-frustum fit.
     /// @param out
     /// @return
-    virtual bool getShadowWindowBounds(BoundsDefinition &out) const = 0;
+    virtual BoundsDefinition getShadowWindowBounds() const = 0;
 
     /// @brief True when the bounds changed since the last markShadowWindowBoundsSynced for the current frame in flight
     /// @param frameTracker
