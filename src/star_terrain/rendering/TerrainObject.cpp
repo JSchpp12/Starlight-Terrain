@@ -16,17 +16,20 @@ TerrainObject::TerrainObject(ColoringMode colorMode, std::vector<std::shared_ptr
 
 star::PipelineProvider TerrainObject::getPipelineProvider(vk::PipelineLayout pipelineLayout)
 {
-    return star::PipelineProvider(
-        {m_vertexShaderHandle, m_fragmentShaderHandle}, pipelineLayout,
-        star::GraphicsOverrides{
-            .vertexInput =
-                star::VertexInputState{.bindings = star::terrain::rendering::getVertexBindingDescription(),
-                                       .attributes = star::terrain::rendering::getVertexInputAttributeDescription()},
-            .dynamicStates =
-                m_colorDrawMode == ColoringMode::greyscale
-                    ? std::vector<vk::DynamicState>{vk::DynamicState::eScissor, vk::DynamicState::eViewport,
-                                                    vk::DynamicState::eLineWidth, vk::DynamicState::eCullMode}
-                    : std::vector<vk::DynamicState>()});
+    return star::PipelineProvider::Builder()
+        .setShaders({m_vertexShaderHandle, m_fragmentShaderHandle})
+        .setPipelineLayout(pipelineLayout)
+        .setGraphicsOverrides(
+            star::GraphicsOverrides{
+                .vertexInput = star::VertexInputState{
+                    .bindings = star::terrain::rendering::getVertexBindingDescription(),
+                    .attributes = star::terrain::rendering::getVertexInputAttributeDescription()},
+                .dynamicStates =
+                    m_colorDrawMode == ColoringMode::greyscale
+                        ? std::vector<vk::DynamicState>{vk::DynamicState::eScissor, vk::DynamicState::eViewport,
+                                                        vk::DynamicState::eLineWidth, vk::DynamicState::eCullMode}
+                        : std::vector<vk::DynamicState>()})
+        .build();
 }
 
 void TerrainObject::recordRenderPassCommands(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout,
