@@ -12,77 +12,78 @@ void to_json(nlohmann::json &j, const ChunkInfo &d)
 {
 }
 
-static std::tuple<bool, double, double> TryGetBounds(const nlohmann::json &j) noexcept
+static bool TryReadCoordinate(const nlohmann::json &node, const char *key, double &out) noexcept
 {
-    bool success{true};
-    double lat{0}, lon{0};
+    const auto it = node.find(key);
+    if (it == node.end())
+    {
+        return false;
+    }
 
     try
     {
-        lat = j["lat"];
-        lon = j["lon"];
+        if (it->is_number())
+        {
+            out = it->get<double>();
+            return true;
+        }
+
+        if (it->is_string())
+        {
+            out = std::stod(it->get<std::string>());
+            return true;
+        }
     }
-    catch (const std::exception &e)
+    catch (const std::exception &)
     {
-        try
-        {
-            const std::string sLat = j["lat"];
-            lat = std::stod(sLat);
-
-            const std::string sLon = j["lon"];
-            lon = std::stod(sLon);
-        }
-        catch (const std::exception &e)
-        {
-            success = false;
-        }
+        return false;
     }
 
+    return false;
+}
+
+static std::tuple<bool, double, double> TryGetBounds(const nlohmann::json &j) noexcept
+{
+    double lat{0}, lon{0};
+    const bool success = TryReadCoordinate(j, "lat", lat) && TryReadCoordinate(j, "lon", lon);
     return std::make_tuple(success, lat, lon);
+}
+
+static glm::dvec2 ReadBoundsCorner(const nlohmann::json &j, const char *corner)
+{
+    const auto boundsIt = j.find("bounds");
+    if (boundsIt == j.end() || !boundsIt->is_object())
+    {
+        STAR_THROW(std::string{"ChunkInfo is missing the 'bounds' object required for corner '"} + corner + "'");
+    }
+
+    const auto cornerIt = boundsIt->find(corner);
+    if (cornerIt == boundsIt->end())
+    {
+        STAR_THROW(std::string{"ChunkInfo.bounds is missing corner '"} + corner + "'");
+    }
+
+    const auto [success, lat, lon] = TryGetBounds(*cornerIt);
+    if (!success)
+    {
+        STAR_THROW(std::string{"Failed to parse ChunkInfo.bounds."} + corner +
+                   " (expected numeric or numeric-string lat/lon)");
+    }
+
+    return glm::dvec2{lat, lon};
 }
 
 void from_json(const nlohmann::json &j, ChunkInfo &d)
 {
-    double lat, lon;
-
-    {
-        auto [success, lat, lon] = TryGetBounds(j["bounds"]["northEast"]);
-        if (!success)
-            STAR_THROW("Failed to parse ChunkInfo.bounds.northEast");
-        d.cornerNE = glm::dvec2{lat, lon};
-    }
-
-    {
-        auto [success, lat, lon] = TryGetBounds(j["bounds"]["southEast"]);
-        if (!success)
-            STAR_THROW("Failed to parse ChunkInfo.bounds.southEast");
-        d.cornerSE = glm::dvec2{lat, lon};
-    }
-
-    {
-        auto [success, lat, lon] = TryGetBounds(j["bounds"]["southWest"]);
-        if (!success)
-            STAR_THROW("Failed to parse ChunkInfo.bounds.southWest");
-        d.cornerSW = glm::dvec2{lat, lon};
-    }
-
-    {
-        auto [success, lat, lon] = TryGetBounds(j["bounds"]["northWest"]);
-        if (!success)
-            STAR_THROW("Failed to parse ChunkInfo.bounds.northWest");
-        d.cornerNW = glm::dvec2{lat, lon};
-    }
-
-    {
-        auto [success, lat, lon] = TryGetBounds(j["bounds"]["center"]);
-        if (!success)
-            STAR_THROW("Failed to parse ChunkInfo.bounds.center");
-        d.center = glm::dvec2{lat, lon};
-    }
+    d.cornerNE = ReadBoundsCorner(j, "northEast");
+    d.cornerSE = ReadBoundsCorner(j, "southEast");
+    d.cornerSW = ReadBoundsCorner(j, "southWest");
+    d.cornerNW = ReadBoundsCorner(j, "northWest");
+    d.center = ReadBoundsCorner(j, "center");
 
     try
     {
-        d.textureFile = j["name"];
+        d.textureFile = j.at("name").get<std::string>();
     }
     catch (const std::exception &e)
     {
