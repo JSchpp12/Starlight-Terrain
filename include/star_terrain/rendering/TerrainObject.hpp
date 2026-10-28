@@ -2,40 +2,37 @@
 
 #include "star_terrain/rendering/TerrainObjectDefinition.hpp"
 
-#include "starlight/ShaderResolver.hpp"
 #include "starlight/object/StarObject.hpp"
+#include "starlight/virtual/StarMesh.hpp"
 
-#include <filesystem>
+#include <memory>
+#include <vector>
 
 namespace star::terrain
 {
-/// Renderable terrain object. Subclasses star::StarObject and produces one
-/// StarMesh per chunk described by the terrain directory's height_info.json.
+/// @brief Renderable terrain object class to be consumed by a render phase type object.
 class TerrainObject : public star::StarObject
 {
   public:
-    TerrainObject(star::core::device::DeviceContext &context, TerrainObjectDefinition def,
-                  star::ShaderResolver &shaderResolver);
-
-    std::filesystem::path getHeightInfoFilePath() const noexcept
-    {
-        return m_def.geometry.terrainDir / "height_info.json";
-    }
-    std::filesystem::path getShapeFilePath() const noexcept
-    {
-        return m_def.geometry.terrainDir / "Shape.json";
-    }
-    rendering::Type getRenderingType() const noexcept
-    {
-        return m_def.geometry.renderType;
-    }
+    TerrainObject(ColoringMode colorMode, std::vector<std::shared_ptr<star::StarMaterial>> materials,
+                  star::Handle vertexShader, star::Handle fragmentShader, std::vector<star::StarMesh> meshes);
 
     virtual star::PipelineProvider getPipelineProvider(vk::PipelineLayout pipelineLayout) override;
+
+    void setRenderShapeType(rendering::ElevationType type)
+    {
+        m_shapeRenderingMode = type;
+    }
+
+    virtual void recordRenderPassCommands(vk::CommandBuffer commandBuffer, vk::PipelineLayout pipelineLayout,
+                                          uint8_t swapChainIndexNum, uint64_t frameIndex) override;
 
   protected:
     std::vector<star::StarMesh> loadMeshes(star::core::device::DeviceContext &context) override;
 
   private:
-    TerrainObjectDefinition m_def;
+    ColoringMode m_colorDrawMode;
+    std::vector<star::StarMesh> m_meshes;
+    rendering::ElevationType m_shapeRenderingMode{rendering::ElevationType::Real};
 };
 } // namespace star::terrain

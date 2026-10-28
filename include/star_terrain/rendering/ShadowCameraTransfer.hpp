@@ -1,7 +1,10 @@
 #pragma once
 
+#include "star_terrain/rendering/BoundsDefinition.hpp"
+
 #include <glm/glm.hpp>
 #include <memory>
+#include <optional>
 #include <starlight/virtual/StarCamera.hpp>
 #include <starlight/virtual/TransferRequest_Buffer.hpp>
 #include <vector>
@@ -15,6 +18,9 @@ class ShadowCameraTransfer : public star::TransferRequest::Buffer
         star::StarCamera mainRenderCamera;
         glm::vec3 lightDirection;
         std::array<uint32_t, 2> shadowMapResolution;
+        std::optional<BoundsDefinition> windowBounds; /// When present, the shadow window fits these
+                                                      /// world bounds instead of the camera frustum.
+        float casterPadding = 0.0f; /// Extra depth past the bounds' light-facing face (bounds path only).
     };
 
     struct ShadowCameraInfo
@@ -49,6 +55,17 @@ class ShadowCameraTransfer : public star::TransferRequest::Buffer
         Builder &setShadowMapResolution(std::array<uint32_t, 2> shadowMapResolution)
         {
             m_calcInfo.shadowMapResolution = std::move(shadowMapResolution);
+            return *this;
+        }
+        /// When set, the shadow window attaches to these world bounds instead of the camera.
+        Builder &setShadowWindowBounds(BoundsDefinition windowBounds)
+        {
+            m_calcInfo.windowBounds = std::move(windowBounds);
+            return *this;
+        }
+        Builder &setCasterPadding(float casterPadding)
+        {
+            m_calcInfo.casterPadding = casterPadding;
             return *this;
         }
         ShadowCameraTransfer build()

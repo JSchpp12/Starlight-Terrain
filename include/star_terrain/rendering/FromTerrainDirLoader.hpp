@@ -3,9 +3,10 @@
 #include "star_terrain/rendering/TerrainObjectDefinition.hpp"
 
 #include <starlight/command/detail/create_object/ObjectLoader.hpp>
-#include <starlight/core/device/DeviceContext.hpp>
+#include <starlight/virtual/StarMesh.hpp>
 
 #include <memory>
+#include <vector>
 
 namespace star::terrain
 {
@@ -14,11 +15,13 @@ namespace star::terrain
 class FromTerrainDirLoader : public star::command::create_object::ObjectLoader
 {
   public:
-    FromTerrainDirLoader(star::core::device::DeviceContext &context, TerrainObjectDefinition def);
+    FromTerrainDirLoader(TerrainObjectDefinition def, std::vector<std::shared_ptr<star::StarMaterial>> materials,
+                         std::vector<star::StarMesh> meshes);
     std::shared_ptr<star::StarObject> load(star::ShaderResolver &shaderResolver);
 
   private:
-    star::core::device::DeviceContext &m_context;
     TerrainObjectDefinition m_def;
+    std::vector<std::shared_ptr<star::StarMaterial>> m_materials;
+    std::vector<star::StarMesh> m_meshes;
 };
 } // namespace star::terrain

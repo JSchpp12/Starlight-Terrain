@@ -1,57 +1,71 @@
 #include "star_terrain/rendering/TerrainGeometryDefinition.hpp"
 
 #include "star_terrain/file_data/texture_data/Reader.hpp"
-#include "star_terrain/generated/terrain_chunk/TerrainChunk.hpp"
+#include "star_terrain/generated/terrain_chunk/policies/LoadFullGeometry.hpp"
+#include "star_terrain/io/GDALDatasetLoader.hpp"
 #include "star_terrain/io/TerrainShapeInfoLoader.hpp"
+#include "star_terrain/io/TerrainShapeLoader.hpp"
+#include "star_terrain/rendering/ChunkUpload.hpp"
 
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/core/logging/LoggingFactory.hpp>
 
 #include <gdal_priv.h>
-#include <tbb/tbb.h>
 
-#include <cassert>
+#include <exception>
 #include <filesystem>
-#include <memory>
 #include <sstream>
 #include <utility>
 
-namespace star::terrain
+namespace star::terrain::rendering
 {
 
-namespace
+/// @brief Load every chunk as full geometry on worker threads, then upload the payloads to GPU buffers on the main
+/// thread.
+/// @param context
+/// @param heightFilePath
+/// @param chunks
+/// @param worldCenter
+/// @return
+static std::vector<ChunkMeshDescription> buildGeometryMeshDescriptions(core::device::DeviceContext &context,
+                                                                       const std::filesystem::path &heightFilePath,
+                                                                       std::vector<ChunkInfo> chunks,
+                                                                       const glm::dvec3 &worldCenter,
+                                                                       ElevationType elevationType)
 {
-/// Per-thread GDAL dataset holder. GDAL does not allow concurrent use of a
-/// single GDALDataset from multiple threads, so each TBB worker opens its own
-/// handle to the same height file. Closed in the destructor on the worker
-/// thread that created it.
-struct ThreadLocalDataset
-{
-    GDALDataset *ds{nullptr};
+    TerrainShapeLoader<LoadFullGeometry> loader(heightFilePath, std::move(chunks), worldCenter, elevationType);
+    auto loadedChunks = loader();
 
-    explicit ThreadLocalDataset(const std::string &path)
+    std::vector<ChunkMeshDescription> meshDescriptions;
+    meshDescriptions.reserve(loadedChunks.size());
+    for (auto &loadedChunk : loadedChunks)
     {
-        ds = static_cast<GDALDataset *>(GDALOpen(path.c_str(), GA_ReadOnly));
-        if (!ds)
-            STAR_THROW("Failed to open GDAL dataset");
+        if (!loadedChunk)
+        {
+            star::core::logging::warning("Skipping terrain chunk that failed to load: ", loadedChunk.error().detail);
+            continue;
+        }
+
+        try
+        {
+            meshDescriptions.emplace_back(uploadChunk(std::move(*loadedChunk), context));
+        }
+        catch (const std::exception &e)
+        {
+            star::core::logging::warning("Skipping terrain chunk that failed to upload: ", e.what());
+        }
     }
 
-    ThreadLocalDataset(const ThreadLocalDataset &) = delete;
-    ThreadLocalDataset &operator=(const ThreadLocalDataset &) = delete;
-
-    ~ThreadLocalDataset()
-    {
-        if (ds)
-            GDALClose(ds);
-    }
-};
-} // namespace
+    return meshDescriptions;
+}
 
 TerrainGeometryDefinition::TerrainGeometryDefinition(std::vector<ChunkMeshDescription> meshDescriptions,
-                                                     std::filesystem::path terrainDir, rendering::Type renderType)
+                                                     std::filesystem::path terrainDir,
+                                                     Representation shapeRepresentation,
+                                                     ElevationType defaultRenderType)
     : meshDescriptions(std::move(meshDescriptions)), terrainDir(std::move(terrainDir)),
-      renderType(std::move(renderType))
+      shapeRepresentation(shapeRepresentation), defaultRenderType(std::move(defaultRenderType))
 {
 }
 
@@ -61,9 +75,17 @@ TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setTerra
     return *this;
 }
 
-TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setRenderType(rendering::Type renderType)
+TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setShapeRepresentation(
+    Representation shapeRepresentation)
 {
-    m_renderType = std::move(renderType);
+    m_shapeRepresentation = shapeRepresentation;
+    return *this;
+}
+
+TerrainGeometryDefinition::Builder &TerrainGeometryDefinition::Builder::setDefaultRenderType(
+    ElevationType defaultRenderType)
+{
+    m_defaultRenderType = std::move(defaultRenderType);
     return *this;
 }
 
@@ -77,10 +99,7 @@ TerrainGeometryDefinition TerrainGeometryDefinition::Builder::build()
 
     auto loadingShapeInfo = TerrainShapeInfoLoader::SubmitForRead(m_terrainDir / "Shape.json", m_context.getCmdBus());
 
-    std::vector<TerrainChunk> chunks;
-    chunks.reserve(fileInfo.chunks.size());
-
-    GDALAllRegister();
+    EnsureGDALRegistered();
 
     CoverageInfo shapeInfo = loadingShapeInfo.get();
     glm::dvec3 worldCenter(shapeInfo.center.x, shapeInfo.center.y, 0);
@@ -96,44 +115,25 @@ TerrainGeometryDefinition TerrainGeometryDefinition::Builder::build()
         STAR_THROW(oss.str());
     }
 
-    bool setWorldCenter = false;
-    for (size_t i = 0; i < fileInfo.chunks.size(); i++)
+    if (!fileInfo.chunks.empty())
     {
-        if (!setWorldCenter)
-        {
-            setWorldCenter = true;
-            worldCenter.z = TerrainChunk::GetHeightAtLocationFromGDAL(fullHeightFilePath.string(), shapeInfo.center.x,
-                                                                      shapeInfo.center.y);
-        }
-
-        chunks.emplace_back(fullHeightFilePath.string(), fileInfo.chunks[i].cornerNE, fileInfo.chunks[i].cornerSE,
-                            fileInfo.chunks[i].cornerSW, fileInfo.chunks[i].cornerNW, worldCenter,
-                            fileInfo.chunks[i].center);
+        worldCenter.z =
+            GetHeightAtLocationFromGDAL(fullHeightFilePath.string(), shapeInfo.center.x, shapeInfo.center.y);
     }
 
-    star::core::logging::info("Launching load tasks");
-
-    tbb::enumerable_thread_specific<std::unique_ptr<ThreadLocalDataset>> tls;
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, chunks.size()), [&](const tbb::blocked_range<size_t> &r) {
-        auto &local = tls.local();
-        if (!local)
-            local = std::make_unique<ThreadLocalDataset>(fullHeightFilePath.string());
-
-        for (size_t i = r.begin(); i != r.end(); ++i)
-        {
-            chunks[i].load(local->ds);
-        }
-    });
-    tls.clear();
-    star::core::logging::info("Done");
-
-    std::vector<ChunkMeshDescription> meshDescriptions;
-    meshDescriptions.reserve(chunks.size());
-    for (auto &chunk : chunks)
+    // The shape representation is a per-terrain choice: dispatch to the
+    // concrete loading path once here so everything below it is monomorphic.
+    switch (m_shapeRepresentation)
     {
-        meshDescriptions.emplace_back(chunk.createMeshDescription(m_context));
+    case Representation::Geometry:
+        return TerrainGeometryDefinition{buildGeometryMeshDescriptions(m_context, fullHeightFilePath,
+                                                                       std::move(fileInfo.chunks), worldCenter,
+                                                                       m_defaultRenderType),
+                                         std::move(m_terrainDir), m_shapeRepresentation, m_defaultRenderType};
+    case Representation::Height_Map:
+        STAR_THROW("The height map terrain shape representation is not implemented yet");
     }
 
-    return TerrainGeometryDefinition{std::move(meshDescriptions), std::move(m_terrainDir), m_renderType};
+    STAR_THROW("Unknown terrain shape representation");
 }
-} // namespace star::terrain
+} // namespace star::terrain::rendering

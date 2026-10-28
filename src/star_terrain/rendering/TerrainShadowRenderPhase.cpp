@@ -70,16 +70,11 @@ void TerrainShadowRenderPhase::cleanupRender(star::common::IDeviceContext &conte
     }
 }
 
-void TerrainShadowRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &buffer,
+void TerrainShadowRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer buffer,
                                                            const star::common::FrameTracker &frameTracker)
 {
-    // Preserve the base per-group pre-render-pass commands (the shadow relied on these before
-    // this override was introduced).
     star::core::renderer::RenderPhase::recordPreRenderPassCommands(buffer, frameTracker);
 
-    // The compute (volume) neighbor leaves the shadow depth in eShaderReadOnlyOptimal after
-    // sampling it. Once it has run (after the first frames-in-flight grace period), reacquire /
-    // transition the depth back to eDepthStencilAttachmentOptimal before beginRendering.
     if (!m_isFirstPass)
     {
         const size_t fi = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
@@ -100,9 +95,8 @@ void TerrainShadowRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer &bu
             m_isFirstPass = false;
     }
 }
-void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer,
-                                              const star::common::FrameTracker &frameTracker,
-                                              const uint64_t &frameIndex)
+void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer commandBuffer,
+                                              const star::common::FrameTracker &frameTracker, uint64_t frameIndex)
 {
     vk::Viewport viewport = this->prepareRenderingViewport(m_renderingContext.targetResolution);
     commandBuffer.setViewport(0, viewport);
@@ -151,8 +145,8 @@ void TerrainShadowRenderPhase::recordCommands(vk::CommandBuffer &commandBuffer,
     recordPostRenderingCalls(commandBuffer, frameTracker);
 }
 
-void TerrainShadowRenderPhase::recordRenderingCalls(vk::CommandBuffer &commandBuffer, const uint8_t &frameInFlightIndex,
-                                                    const uint64_t &frameIndex)
+void TerrainShadowRenderPhase::recordRenderingCalls(vk::CommandBuffer commandBuffer, uint8_t frameInFlightIndex,
+                                                    uint64_t frameIndex)
 {
     for (auto &group : m_renderGroups)
     {
@@ -172,9 +166,9 @@ void TerrainShadowRenderPhase::recordRenderingCalls(vk::CommandBuffer &commandBu
     }
 }
 
-void TerrainShadowRenderPhase::recordCommandBufferDependencies(vk::CommandBuffer &commandBuffer,
+void TerrainShadowRenderPhase::recordCommandBufferDependencies(vk::CommandBuffer commandBuffer,
                                                                const star::common::FrameTracker &frameTracker,
-                                                               const uint64_t &frameIndex)
+                                                               uint64_t frameIndex)
 {
     if (m_barrFunction == nullptr)
         return;

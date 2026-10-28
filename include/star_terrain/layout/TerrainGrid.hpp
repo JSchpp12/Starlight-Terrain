@@ -1,7 +1,7 @@
 #pragma once
 
 #include "star_terrain/file_data/ChunkInfo.hpp"
-#include "star_terrain/generated/terrain_chunk/TerrainChunk.hpp"
+#include "star_terrain/generated/terrain_chunk/policies/LoadFullGeometry.hpp"
 
 #include <glm/glm.hpp>
 #include <optional>
@@ -12,15 +12,13 @@
 namespace star::terrain::layout
 {
 /// Arranges terrain chunks into a 2D grid based on their center coordinates.
-/// Chunks are added with their height/texture file paths and bounding rectangle
-/// (upper-left / lower-right), then finalized into TerrainChunk objects.
 class TerrainGrid
 {
   public:
     void add(const std::string &heightFile, const std::string &textureFile, const glm::vec2 &upperLeft,
              const glm::vec2 &lowerRight);
 
-    std::vector<TerrainChunk> getFinalizedChunks();
+    std::vector<LoadFullGeometry> getFinalizedChunks();
 
   private:
     enum class Direction

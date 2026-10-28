@@ -16,6 +16,7 @@
 #include <starlight/event/DescriptorPoolReady.hpp>
 #include <starlight/factory/TextureFactory.hpp>
 #include <starlight/maker/texture/MakeTexture.hpp>
+#include <starlight/wrappers/Allocator.hpp>
 
 #include <star_common/EventBus.hpp>
 #include <star_common/FrameTracker.hpp>
@@ -53,11 +54,12 @@ static const star::ManagerController::RenderResource::GlobalInfo *GetMainGlobalI
 static std::shared_ptr<star::core::renderer::FrameData> CreateShadowFrameData(
     star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights,
     const star::ManagerController::RenderResource::GlobalInfo *mainCamController,
-    const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController) noexcept
+    const star::ManagerController::RenderResource::InstanceModelInfo *instanceModelInfoController,
+    star::terrain::rendering::ShadowWindowBoundsProvider *windowBoundsProvider) noexcept
 {
     auto cameraController = std::make_shared<star::terrain::rendering::ShadowCameraController>(
         context.frameTracker().getSetup().getNumFramesInFlight(), lights, 0, std::array<uint32_t, 2>{2048, 2048},
-        mainCamController, instanceModelInfoController);
+        mainCamController, instanceModelInfoController, windowBoundsProvider);
     auto fd = std::make_shared<star::core::renderer::FrameData>();
     fd->add(std::move(cameraController),
             star::core::renderer::roleHandle(star::terrain::rendering::data_roles::ShadowLightProjections));
@@ -67,10 +69,11 @@ static std::shared_ptr<star::core::renderer::FrameData> CreateShadowFrameData(
 TerrainShadowRenderPhaseProvider::TerrainShadowRenderPhaseProvider(
     star::core::device::DeviceContext &context, std::shared_ptr<std::vector<star::Light>> lights,
     std::vector<std::shared_ptr<star::StarObject>> objects, star::Handle mainTerrainRenderPhaseRegistration,
-    bool enableShadowCasting, star::Command_Buffer_Order_Index order)
+    bool enableShadowCasting, star::Command_Buffer_Order_Index order,
+    star::terrain::rendering::ShadowWindowBoundsProvider *windowBoundsProvider)
     : m_objects(std::move(objects)), m_lights(std::move(lights)),
       m_mainTerrainRenderRegistration(std::move(mainTerrainRenderPhaseRegistration)),
-      m_enableShadowCasting(enableShadowCasting)
+      m_enableShadowCasting(enableShadowCasting), m_windowBoundsProvider(windowBoundsProvider)
 {
     m_config.order = star::Command_Buffer_Order::before_render_pass;
     m_config.orderIndex = order;
@@ -93,13 +96,15 @@ static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device
 
     vk::Format depthFormat = vk::Format::eUndefined;
     std::vector<StarTextures::Texture> depthTextures(numToCreate);
+    std::vector<StarTextures::Texture> depthTextures(numToCreate);
     {
         depthFormat =
             selectFormat(context, {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
                          vk::FormatFeatureFlagBits::eDepthStencilAttachment | vk::FormatFeatureFlagBits::eSampledImage);
 
         auto builder =
-            star::maker::texture::MakeTexture(context.getDevice())
+            star::maker::texture::MakeTexture(context.getDevice()) star::maker::texture::MakeTexture(
+                context.getDevice())
                 .setCreateInfo(
                     Allocator::AllocationBuilder()
                         .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
@@ -115,7 +120,7 @@ static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device
                         .setTiling(vk::ImageTiling::eOptimal)
                         .setInitialLayout(vk::ImageLayout::eUndefined)
                         .setSamples(vk::SampleCountFlagBits::e1),
-                    "OffscreenRenderToImagesDepth")
+                    "TerrainShadowRenderDepths")
                 .setBaseFormat(depthFormat)
                 .addViewInfo(vk::ImageViewCreateInfo()
                                  .setViewType(vk::ImageViewType::e2D)
@@ -145,8 +150,11 @@ static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device
 
         const auto makeResult = builder.make(depthTextures.data(), numToCreate);
         if (!makeResult)
+            const auto makeResult = builder.make(depthTextures.data(), numToCreate);
+        if (!makeResult)
         {
-            STAR_THROW("Terrain: failed to create shadow depth textures: " + makeResult.error().detail);
+            STAR_THROW("TerrainShadowRenderPhaseProvider: failed to create shadow depth textures: " +
+                       makeResult.error().detail);
         }
     }
 
@@ -164,7 +172,7 @@ static std::vector<StarTextures::Texture> CreateRawShadowDepthTextures(
 
     const vk::Extent3D extent = vk::Extent3D().setWidth(width).setHeight(height).setDepth(1);
     const vk::DeviceSize size =
-        StarTextures::TextureFactory::CalculateSize(depthFormat, extent, 1, vk::ImageType::e2D, 1);
+        star::StarTextures::TextureFactory::CalculateSize(depthFormat, extent, 1, vk::ImageType::e2D, 1);
 
     for (const auto &compareTexture : compareTextures)
     {
@@ -203,7 +211,8 @@ static std::vector<StarTextures::Texture> CreateRawShadowDepthTextures(
                 .make(&rawTexture, 1);
         if (!makeResult)
         {
-            STAR_THROW("Terrain: failed to create raw shadow depth texture: " + makeResult.error().detail);
+            STAR_THROW("TerrainShadowRenderPhaseProvider: failed to create raw shadow depth texture: " +
+                       makeResult.error().detail);
         }
 
         rawTextures.push_back(std::move(rawTexture));
@@ -272,7 +281,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
         assert(!phase->m_objects.empty() && "Shadow-cast terrain must always be provided");
         const auto *mainCamera = GetMainGlobalInfo(phases, m_mainTerrainRenderRegistration);
         auto *instanceModel = &phase->m_objects.front()->getInstanceModelController();
-        phase->m_frameData = CreateShadowFrameData(c, m_lights, mainCamera, instanceModel);
+        phase->m_frameData = CreateShadowFrameData(c, m_lights, mainCamera, instanceModel, m_windowBoundsProvider);
     }
 
     phase->setDataRolesOwned(shadowLightProjDataRole);

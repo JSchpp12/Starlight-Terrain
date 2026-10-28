@@ -1,4 +1,4 @@
-#include "star_terrain/rendering/ShadowCasterInfo.hpp"
+#include "star_terrain/rendering/ShadowFrustumCalculator.hpp"
 
 #include <starlight/common/entities/Light.hpp>
 #include <starlight/virtual/StarCamera.hpp>
@@ -6,11 +6,13 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <cassert>
 #include <limits>
 
 namespace star::terrain::rendering
 {
-ShadowCasterInfo::ShadowCasterInfo(const star::StarCamera &worldCamera, const glm::vec3 &shadowLightDirection)
+ShadowFrustumCalculator::ShadowFrustumCalculator(const star::StarCamera &worldCamera,
+                                                 const glm::vec3 &shadowLightDirection)
     : m_worldCamera(worldCamera), m_shadowLightDirection(shadowLightDirection)
 {
 }
@@ -52,8 +54,9 @@ static glm::vec3 PickLightUpDirection(const glm::vec3 &forward) noexcept
     return kWorldUp;
 }
 
-// Rotation only (eye at origin). This is the fixed "light space" used for snapping.
-static glm::mat4 GetLightRotation(const glm::vec3 &lightDirection) noexcept
+// Rotation only (eye at origin). This is the fixed "light space" used for snapping and for
+// building light-space fit targets (BoundsDefinition::Builder::asSphere).
+glm::mat4 ShadowFrustumCalculator::getLightRotation(const glm::vec3 &lightDirection) noexcept
 {
     const glm::vec3 forward = glm::normalize(lightDirection);
     return glm::lookAt(glm::vec3(0.0f), forward, PickLightUpDirection(forward));
@@ -79,14 +82,14 @@ static std::array<glm::vec3, 8> ApplyTransformToCorners(const std::array<glm::ve
     return lightSpaceCorners;
 }
 
-ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getLightCameraFrustumInfo() const noexcept
+ShadowFrustumCalculator::FrustumCornerInfo ShadowFrustumCalculator::getLightCameraFrustumInfo() const noexcept
 {
     auto info = getMainCameraFrustumInfo();
     transformToLightSpace(info);
     return info;
 }
 
-ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getMainCameraFrustumInfo() const noexcept
+ShadowFrustumCalculator::FrustumCornerInfo ShadowFrustumCalculator::getMainCameraFrustumInfo() const noexcept
 {
     FrustumCornerInfo info{.corners = GetNDFrustumCorners(), .center = glm::vec3{0.0f}, .viewSphereRadius = 0.0f};
 
@@ -112,36 +115,60 @@ ShadowCasterInfo::FrustumCornerInfo ShadowCasterInfo::getMainCameraFrustumInfo()
     return info;
 }
 
-void ShadowCasterInfo::transformToLightSpace(FrustumCornerInfo &workingInfo) const noexcept
+void ShadowFrustumCalculator::transformToLightSpace(FrustumCornerInfo &workingInfo) const noexcept
 {
     const auto lightView = GetLightView(workingInfo.center, m_shadowLightDirection, workingInfo.viewSphereRadius);
     workingInfo.corners = ApplyTransformToCorners(workingInfo.corners, lightView);
     workingInfo.center = glm::vec3(lightView * glm::vec4(workingInfo.center, 1.0f));
 }
 
-glm::mat4 ShadowCasterInfo::getShadowLightProjectionWithTexelSnapping(
-    const LightProjectionParams &params) const noexcept
+glm::mat4 ShadowFrustumCalculator::getShadowLightProjectionForBounds(const BoundsDefinition &bounds,
+                                                                     const LightProjectionParams &params) const noexcept
 {
-    const FrustumCornerInfo info = getMainCameraFrustumInfo();
+    const auto &fitPoints = bounds.getFitPoints();
+    assert(!fitPoints.empty() && "Fit needs at least one point");
 
-    // Quantize an overridden radius too, so it can never wobble between frames.
-    const float radius = params.radius > 0.0f ? std::ceil(params.radius * 16.0f) / 16.0f : info.viewSphereRadius;
-    const float depthRange = 2.0f * radius + 2.0f * params.casterPadding;
+    const glm::mat4 lightRot = getLightRotation(m_shadowLightDirection);
 
-    const glm::mat4 lightRot = GetLightRotation(m_shadowLightDirection);
-    glm::vec3 c = glm::vec3(lightRot * glm::vec4(info.center, 1.0f));
+    // Fit target bounds in light-rotation space. Light space +z faces the sun, so the largest z
+    // point is the sunward face and the smallest z point is the light-facing face (the one toward
+    // the ground).
+    glm::vec3 mn(std::numeric_limits<float>::max());
+    glm::vec3 mx(-std::numeric_limits<float>::max());
+    for (const auto &worldPoint : fitPoints)
+    {
+        const glm::vec3 lightPoint = glm::vec3(lightRot * glm::vec4(worldPoint, 1.0f));
+        mn = glm::min(mn, lightPoint);
+        mx = glm::max(mx, lightPoint);
+    }
 
-    const float extents[3] = {2.0f * radius, 2.0f * radius, depthRange};
+    // xy window: cover the fit target with a small safety margin (snapping the center can only
+    // shrink the covered area, never grow it), then quantize so the texel size can never wobble
+    // between frames.
+    float radius = 0.5f * glm::max(mx.x - mn.x, mx.y - mn.y) * 1.05f;
+    radius = std::ceil(radius * 16.0f) / 16.0f;
+
+    const float zExtent = mx.z - mn.z;
+
+    // Depth window: start just sunward of the fit target and end past its light-facing face by the
+    // caster padding so the geometry below it still lands in the depth range. The eye sits a little
+    // above the sunward face instead of grazing it so near geometry is never clipped by the near
+    // plane.
+    const float nearMargin = glm::max(1.0f, 0.05f * zExtent);
+    const float depthRange = zExtent + nearMargin + params.casterPadding;
+
+    glm::vec3 c = (mn + mx) * 0.5f;
+    const float snapExtents[3] = {2.0f * radius, 2.0f * radius, depthRange};
     for (int i = 0; i < 3; ++i)
     {
         if (params.resolution[i] == 0)
             continue;
-        const float step = extents[i] / static_cast<float>(params.resolution[i]);
+        const float step = snapExtents[i] / static_cast<float>(params.resolution[i]);
         c[i] = std::floor(c[i] / step) * step;
     }
 
-    const glm::mat4 lightView =
-        glm::translate(glm::mat4(1.0f), glm::vec3(-c.x, -c.y, -c.z - radius - params.casterPadding)) * lightRot;
+    const float eyeZ = c.z + 0.5f * zExtent + nearMargin;
+    const glm::mat4 lightView = glm::translate(glm::mat4(1.0f), glm::vec3(-c.x, -c.y, -eyeZ)) * lightRot;
 
     auto proj = glm::ortho(-radius, radius, -radius, radius, 0.0f, depthRange);
     proj[1][1] *= -1;

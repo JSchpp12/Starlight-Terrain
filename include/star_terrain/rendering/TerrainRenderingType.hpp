@@ -4,31 +4,31 @@
 
 namespace star::terrain::rendering
 {
-enum class Type
+enum class ElevationType
 {
     Flat,
     Real
 };
 
-constexpr std::string toString(Type type)
+constexpr std::string toString(ElevationType type)
 {
     switch (type)
     {
-    case (Type::Flat):
+    case (ElevationType::Flat):
         return "flat";
-    case (Type::Real):
+    case (ElevationType::Real):
         return "real";
     }
 
     return "";
 }
 
-constexpr Type fromString(std::string_view str)
+constexpr ElevationType fromString(std::string_view str)
 {
     if (str == "flat")
-        return Type::Flat;
+        return ElevationType::Flat;
     if (str == "real")
-        return Type::Real;
-    return Type::Flat;
+        return ElevationType::Real;
+    return ElevationType::Flat;
 }
 } // namespace star::terrain::rendering

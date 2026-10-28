@@ -17,7 +17,15 @@
 namespace star::terrain
 {
 class TerrainShadowRenderPhase;
+} // namespace star::terrain
 
+namespace star::terrain::rendering
+{
+class ShadowWindowBoundsProvider;
+} // namespace star::terrain::rendering
+
+namespace star::terrain
+{
 class TerrainShadowRenderPhaseProvider : public star::core::renderer::IRenderPhaseProvider
 {
   public:
@@ -25,7 +33,8 @@ class TerrainShadowRenderPhaseProvider : public star::core::renderer::IRenderPha
                                      std::shared_ptr<std::vector<star::Light>> lights,
                                      std::vector<std::shared_ptr<star::StarObject>> objects,
                                      star::Handle mainTerrainRenderPhaseRegistration, bool enableShadowCasting,
-                                     star::Command_Buffer_Order_Index order);
+                                     star::Command_Buffer_Order_Index order,
+                                     rendering::ShadowWindowBoundsProvider *windowBoundsProvider = nullptr);
     virtual ~TerrainShadowRenderPhaseProvider() = default;
     TerrainShadowRenderPhaseProvider(const TerrainShadowRenderPhaseProvider &) = delete;
     TerrainShadowRenderPhaseProvider &operator=(const TerrainShadowRenderPhaseProvider &) = delete;
@@ -43,6 +52,7 @@ class TerrainShadowRenderPhaseProvider : public star::core::renderer::IRenderPha
     star::Handle m_mainTerrainRenderRegistration;
     std::vector<star::Handle> m_rawDepthHandles;
     bool m_enableShadowCasting = false;
+    rendering::ShadowWindowBoundsProvider *m_windowBoundsProvider = nullptr;
 
     star::core::renderer::RenderTargets createRenderTargets(star::core::device::DeviceContext &ctx,
                                                             star::core::renderer::RenderingContext &renderingContext);

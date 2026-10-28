@@ -16,9 +16,7 @@ enum class ColoringMode
 
 struct TerrainObjectDefinition
 {
-    TerrainGeometryDefinition geometry;
-    std::filesystem::path vertShaderPath;
-    std::filesystem::path fragShaderPath;
+    rendering::TerrainGeometryDefinition geometry;
     ColoringMode colorMode;
     TerrainTextureLoaderPlan textures;
 };
