@@ -96,15 +96,13 @@ static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device
 
     vk::Format depthFormat = vk::Format::eUndefined;
     std::vector<StarTextures::Texture> depthTextures(numToCreate);
-    std::vector<StarTextures::Texture> depthTextures(numToCreate);
     {
         depthFormat =
             selectFormat(context, {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
                          vk::FormatFeatureFlagBits::eDepthStencilAttachment | vk::FormatFeatureFlagBits::eSampledImage);
 
         auto builder =
-            star::maker::texture::MakeTexture(context.getDevice()) star::maker::texture::MakeTexture(
-                context.getDevice())
+            star::maker::texture::MakeTexture(context.getDevice())
                 .setCreateInfo(
                     Allocator::AllocationBuilder()
                         .setFlags(VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
