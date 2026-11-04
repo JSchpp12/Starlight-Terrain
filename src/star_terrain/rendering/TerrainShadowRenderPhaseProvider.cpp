@@ -14,7 +14,6 @@
 #include <starlight/core/renderer/FrameData.hpp>
 #include <starlight/core/renderer/RenderPhaseHelpers.hpp>
 #include <starlight/event/DescriptorPoolReady.hpp>
-#include <starlight/factory/TextureFactory.hpp>
 #include <starlight/maker/texture/MakeTexture.hpp>
 #include <starlight/wrappers/Allocator.hpp>
 
@@ -169,8 +168,6 @@ static std::vector<StarTextures::Texture> CreateRawShadowDepthTextures(
     rawTextures.reserve(compareTextures.size());
 
     const vk::Extent3D extent = vk::Extent3D().setWidth(width).setHeight(height).setDepth(1);
-    const vk::DeviceSize size =
-        star::StarTextures::TextureFactory::CalculateSize(depthFormat, extent, 1, vk::ImageType::e2D, 1);
 
     for (const auto &compareTexture : compareTextures)
     {
@@ -205,7 +202,7 @@ static std::vector<StarTextures::Texture> CreateRawShadowDepthTextures(
                                     .setMipLodBias(0.0f)
                                     .setMinLod(0.0f)
                                     .setMaxLod(0.0f))
-                .setSizeInfo(size, extent)
+                .setResolution(extent)
                 .make(&rawTexture, 1);
         if (!makeResult)
         {
