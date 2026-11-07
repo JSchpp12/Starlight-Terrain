@@ -147,8 +147,6 @@ static std::vector<StarTextures::Texture> CreateShadowDepthTextures(core::device
 
         const auto makeResult = builder.make(depthTextures.data(), numToCreate);
         if (!makeResult)
-            const auto makeResult = builder.make(depthTextures.data(), numToCreate);
-        if (!makeResult)
         {
             STAR_THROW("TerrainShadowRenderPhaseProvider: failed to create shadow depth textures: " +
                        makeResult.error().detail);

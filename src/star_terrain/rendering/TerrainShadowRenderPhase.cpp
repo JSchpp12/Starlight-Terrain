@@ -226,8 +226,9 @@ vk::RenderingAttachmentInfo TerrainShadowRenderPhase::prepareDynamicRenderingInf
     size_t index = static_cast<size_t>(frameTracker.getCurrent().getFrameInFlightIndex());
 
     vk::RenderingAttachmentInfoKHR depthAttachmentInfo{};
+    const auto *depthTexture = m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[index]);
     depthAttachmentInfo.imageView =
-        m_renderingContext.recordDependentImage.get(m_renderTargets.depthHandles()[index])->getImageView();
+        depthTexture->getImageView().get(depthTexture->getBaseFormat(), vk::ImageViewType::e2D);
     depthAttachmentInfo.imageLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
     depthAttachmentInfo.loadOp = vk::AttachmentLoadOp::eClear;
     depthAttachmentInfo.storeOp = vk::AttachmentStoreOp::eStore;
