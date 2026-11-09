@@ -7,8 +7,8 @@
 namespace star::terrain
 {
 
-TerrainObject::TerrainObject(ColoringMode colorMode, std::vector<std::shared_ptr<star::StarMaterial>> materials,
-                             star::Handle vertexShader, star::Handle fragmentShader, std::vector<star::StarMesh> meshes)
+TerrainObject::TerrainObject(ColoringMode colorMode, std::vector<star::Handle> materials, star::Handle vertexShader,
+                             star::Handle fragmentShader, std::vector<star::StarMesh> meshes)
     : star::StarObject(std::move(materials), vertexShader, fragmentShader), m_colorDrawMode(colorMode),
       m_meshes(std::move(meshes))
 {
@@ -19,16 +19,15 @@ star::PipelineProvider TerrainObject::getPipelineProvider(vk::PipelineLayout pip
     return star::PipelineProvider::Builder()
         .setShaders({m_vertexShaderHandle, m_fragmentShaderHandle})
         .setPipelineLayout(pipelineLayout)
-        .setGraphicsOverrides(
-            star::GraphicsOverrides{
-                .vertexInput = star::VertexInputState{
-                    .bindings = star::terrain::rendering::getVertexBindingDescription(),
-                    .attributes = star::terrain::rendering::getVertexInputAttributeDescription()},
-                .dynamicStates =
-                    m_colorDrawMode == ColoringMode::greyscale
-                        ? std::vector<vk::DynamicState>{vk::DynamicState::eScissor, vk::DynamicState::eViewport,
-                                                        vk::DynamicState::eLineWidth, vk::DynamicState::eCullMode}
-                        : std::vector<vk::DynamicState>()})
+        .setGraphicsOverrides(star::GraphicsOverrides{
+            .vertexInput =
+                star::VertexInputState{.bindings = star::terrain::rendering::getVertexBindingDescription(),
+                                       .attributes = star::terrain::rendering::getVertexInputAttributeDescription()},
+            .dynamicStates =
+                m_colorDrawMode == ColoringMode::greyscale
+                    ? std::vector<vk::DynamicState>{vk::DynamicState::eScissor, vk::DynamicState::eViewport,
+                                                    vk::DynamicState::eLineWidth, vk::DynamicState::eCullMode}
+                    : std::vector<vk::DynamicState>()})
         .build();
 }
 

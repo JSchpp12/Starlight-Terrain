@@ -8,5 +8,5 @@
 namespace star::terrain::texture_loading
 {
 /// Materials produced for every chunk of a terrain, in chunk order.
-using TerrainTextureMaterials = std::vector<std::shared_ptr<star::StarMaterial>>;
+using TerrainTextureMaterials = std::vector<std::unique_ptr<star::StarMaterial>>;
 } // namespace star::terrain::texture_loading

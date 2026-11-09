@@ -14,8 +14,8 @@ namespace star::terrain
 class TerrainObject : public star::StarObject
 {
   public:
-    TerrainObject(ColoringMode colorMode, std::vector<std::shared_ptr<star::StarMaterial>> materials,
-                  star::Handle vertexShader, star::Handle fragmentShader, std::vector<star::StarMesh> meshes);
+    TerrainObject(ColoringMode colorMode, std::vector<star::Handle> materials, star::Handle vertexShader,
+                  star::Handle fragmentShader, std::vector<star::StarMesh> meshes);
 
     virtual star::PipelineProvider getPipelineProvider(vk::PipelineLayout pipelineLayout) override;
 

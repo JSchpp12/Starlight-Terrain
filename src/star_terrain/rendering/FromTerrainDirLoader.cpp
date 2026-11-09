@@ -7,14 +7,14 @@
 namespace star::terrain
 {
 
-FromTerrainDirLoader::FromTerrainDirLoader(TerrainObjectDefinition def,
-                                           std::vector<std::shared_ptr<star::StarMaterial>> materials,
+FromTerrainDirLoader::FromTerrainDirLoader(TerrainObjectDefinition def, std::vector<star::Handle> materials,
                                            std::vector<star::StarMesh> meshes)
     : m_def(std::move(def)), m_materials(std::move(materials)), m_meshes(std::move(meshes))
 {
 }
 
-std::shared_ptr<star::StarObject> FromTerrainDirLoader::load(star::ShaderResolver &shaderResolver)
+std::shared_ptr<star::StarObject> FromTerrainDirLoader::load(star::core::device::DeviceContext & /*context*/,
+                                                             star::ShaderResolver &shaderResolver)
 {
     return std::make_shared<TerrainObject>(m_def.colorMode, std::move(m_materials),
                                            shaderResolver.resolve(star::Shader_Stage::vertex),

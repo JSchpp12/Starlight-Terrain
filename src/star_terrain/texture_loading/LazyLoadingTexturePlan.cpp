@@ -13,7 +13,7 @@ TerrainTextureMaterials LazyLoadingTexturePlan::load(core::device::DeviceContext
 
     for (size_t i{0}; i < texturePaths.size(); i++)
     {
-        materials[i] = std::make_shared<star::TextureMaterial>(texturePaths[i].string());
+        materials[i] = std::make_unique<star::TextureMaterial>(texturePaths[i].string());
     }
 
     return materials;

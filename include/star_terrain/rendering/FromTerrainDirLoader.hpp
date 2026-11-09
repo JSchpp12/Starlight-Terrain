@@ -15,13 +15,14 @@ namespace star::terrain
 class FromTerrainDirLoader : public star::command::create_object::ObjectLoader
 {
   public:
-    FromTerrainDirLoader(TerrainObjectDefinition def, std::vector<std::shared_ptr<star::StarMaterial>> materials,
+    FromTerrainDirLoader(TerrainObjectDefinition def, std::vector<star::Handle> materials,
                          std::vector<star::StarMesh> meshes);
-    std::shared_ptr<star::StarObject> load(star::ShaderResolver &shaderResolver);
+    std::shared_ptr<star::StarObject> load(star::core::device::DeviceContext &context,
+                                           star::ShaderResolver &shaderResolver);
 
   private:
     TerrainObjectDefinition m_def;
-    std::vector<std::shared_ptr<star::StarMaterial>> m_materials;
+    std::vector<star::Handle> m_materials;
     std::vector<star::StarMesh> m_meshes;
 };
 } // namespace star::terrain

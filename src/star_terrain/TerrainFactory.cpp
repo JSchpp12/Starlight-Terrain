@@ -10,6 +10,7 @@
 #include <starlight/common/materials/TextureMaterial.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
+#include <starlight/core/device/managers/Material.hpp>
 #include <starlight/object/StarObject.hpp>
 #include <starlight/virtual/StarMesh.hpp>
 
@@ -19,7 +20,7 @@
 
 namespace star::terrain
 {
-static std::vector<std::shared_ptr<star::StarMaterial>> CreateTerrainMaterials(core::device::DeviceContext &context,
+static std::vector<std::unique_ptr<star::StarMaterial>> CreateTerrainMaterials(core::device::DeviceContext &context,
                                                                                const TerrainObjectDefinition &def)
 {
     // Store by value: the tuple returned by ReadTerrainTextureInfo is a temporary and
@@ -29,11 +30,11 @@ static std::vector<std::shared_ptr<star::StarMaterial>> CreateTerrainMaterials(c
 
     if (def.colorMode != ColoringMode::color)
     {
-        std::vector<std::shared_ptr<star::StarMaterial>> materials;
+        std::vector<std::unique_ptr<star::StarMaterial>> materials;
         materials.reserve(fileInfo.chunks.size());
         for (size_t i = 0; i < fileInfo.chunks.size(); i++)
         {
-            materials.push_back(std::make_shared<star::StarMaterial>());
+            materials.push_back(std::make_unique<star::StarMaterial>());
         }
         return materials;
     }
@@ -41,18 +42,9 @@ static std::vector<std::shared_ptr<star::StarMaterial>> CreateTerrainMaterials(c
     return LoadTerrainTextures(context, def.geometry.terrainDir, fileInfo, def.textures);
 }
 
-static std::vector<star::StarMesh> loadMeshes(core::device::DeviceContext &context, const TerrainObjectDefinition &def,
-                                              const std::vector<std::shared_ptr<star::StarMaterial>> &materials)
+static std::vector<star::StarMesh> loadMeshes(const TerrainObjectDefinition &def,
+                                              const std::vector<star::Handle> &materials)
 {
-    // conditionally pre-load textures
-    if (def.colorMode == star::terrain::ColoringMode::color)
-    {
-        for (auto &material : materials)
-        {
-            static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
-        }
-    }
-
     const auto &meshDescriptions = def.geometry.meshDescriptions;
     assert(meshDescriptions.size() == materials.size() && "Every chunk should have its own material");
 
@@ -124,13 +116,30 @@ std::shared_ptr<star::StarObject> TerrainFactory::buildTerrain(core::device::Dev
                                                                      : TerrainTextureLoaderPlan::Lazy()};
 
     auto materials = CreateTerrainMaterials(context, def);
-    auto meshes = loadMeshes(context, def, materials);
 
-    auto cmd = star::command::CreateObject::Builder()
-                   .setLoader(std::make_unique<FromTerrainDirLoader>(def, std::move(materials), std::move(meshes)))
-                   .setShaderResolver(std::move(terrainResolver))
-                   .setUniqueName(name)
-                   .build();
+    // Preload path-backed textures before the recipes are moved into the manager.
+    if (def.colorMode == star::terrain::ColoringMode::color)
+    {
+        for (auto &material : materials)
+            static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
+    }
+
+    std::vector<star::Handle> materialHandles;
+    materialHandles.reserve(materials.size());
+    for (auto &material : materials)
+    {
+        materialHandles.push_back(context.getGraphicsManagers().materialManager.submit(
+            star::core::device::manager::MaterialRequest{std::move(material)}));
+    }
+
+    auto meshes = loadMeshes(def, materialHandles);
+
+    auto cmd =
+        star::command::CreateObject::Builder()
+            .setLoader(std::make_unique<FromTerrainDirLoader>(def, std::move(materialHandles), std::move(meshes)))
+            .setShaderResolver(std::move(terrainResolver))
+            .setUniqueName(name)
+            .build();
     context.begin().set(cmd).submit();
     cmd.getReply().get()->init(context);
     return cmd.getReply().get();

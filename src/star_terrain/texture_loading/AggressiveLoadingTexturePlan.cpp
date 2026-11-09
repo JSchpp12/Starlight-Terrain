@@ -30,7 +30,7 @@ TerrainTextureMaterials AggressiveLoadingTexturePlan::load(core::device::DeviceC
     TerrainTextureMaterials materials{texturePaths.size()};
     for (size_t i = 0; i < texturePaths.size(); ++i)
     {
-        materials[i] = std::make_shared<star::TextureMaterial>(texturePaths[i].string(), std::move(transcoded[i]));
+        materials[i] = std::make_unique<star::TextureMaterial>(texturePaths[i].string(), std::move(transcoded[i]));
     }
 
     return materials;
