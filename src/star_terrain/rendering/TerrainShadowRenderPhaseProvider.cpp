@@ -316,7 +316,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
     phase->m_rawDepthHandles = std::move(m_rawDepthHandles);
 
     for (auto &group : phase->m_renderGroups)
-        group.prepRender(c);
+        group.prepRender(c, phase->m_commandBuffer);
 
     const auto global = star::core::renderer::shaderInfoHandle("Global");
     star::core::renderer::DescriptorRecipe::Builder(c.getEventBus(), c,

@@ -2,16 +2,18 @@
 
 #include "star_terrain/rendering/TerrainVertexDescription.hpp"
 
+#include <cassert>
 #include <utility>
 
 namespace star::terrain
 {
 
-TerrainObject::TerrainObject(ColoringMode colorMode, std::vector<star::Handle> materials, star::Handle vertexShader,
-                             star::Handle fragmentShader, std::vector<star::StarMesh> meshes)
-    : star::StarObject(std::move(materials), vertexShader, fragmentShader), m_colorDrawMode(colorMode),
-      m_meshes(std::move(meshes))
+TerrainObject::TerrainObject(ColoringMode colorMode, std::vector<std::unique_ptr<star::IMaterialProvider>> materials,
+                             star::Handle vertexShader, star::Handle fragmentShader, TerrainObjectDefinition def)
+    : star::StarObject(std::move(materials)), m_colorDrawMode(colorMode), m_def(std::move(def))
 {
+    m_vertexShaderHandle = vertexShader;
+    m_fragmentShaderHandle = fragmentShader;
 }
 
 star::PipelineProvider TerrainObject::getPipelineProvider(vk::PipelineLayout pipelineLayout)
@@ -46,6 +48,20 @@ void TerrainObject::recordRenderPassCommands(vk::CommandBuffer commandBuffer, vk
 
 std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::DeviceContext &context)
 {
-    return std::move(m_meshes);
+    (void)context;
+
+    const auto &meshDescriptions = m_def.geometry.meshDescriptions;
+    assert(meshDescriptions.size() == m_materialHandles.size() && "Every chunk should have its own material");
+
+    std::vector<star::StarMesh> meshes;
+    meshes.reserve(meshDescriptions.size());
+    for (size_t i = 0; i < meshDescriptions.size(); i++)
+    {
+        const auto &desc = meshDescriptions[i];
+        meshes.emplace_back(desc.vertBuffer, desc.indBuffer, desc.vertCount, desc.indCount, m_materialHandles[i],
+                            desc.bbMin, desc.bbMax, false);
+    }
+
+    return meshes;
 }
 } // namespace star::terrain

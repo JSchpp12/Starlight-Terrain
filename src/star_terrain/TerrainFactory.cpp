@@ -11,6 +11,7 @@
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/core/device/managers/Material.hpp>
+#include <starlight/material/MaterialProvider.hpp>
 #include <starlight/object/StarObject.hpp>
 #include <starlight/virtual/StarMesh.hpp>
 
@@ -40,25 +41,6 @@ static std::vector<std::unique_ptr<star::StarMaterial>> CreateTerrainMaterials(c
     }
 
     return LoadTerrainTextures(context, def.geometry.terrainDir, fileInfo, def.textures);
-}
-
-static std::vector<star::StarMesh> loadMeshes(const TerrainObjectDefinition &def,
-                                              const std::vector<star::Handle> &materials)
-{
-    const auto &meshDescriptions = def.geometry.meshDescriptions;
-    assert(meshDescriptions.size() == materials.size() && "Every chunk should have its own material");
-
-    std::vector<star::StarMesh> terrainMeshes;
-    terrainMeshes.reserve(meshDescriptions.size());
-
-    for (size_t i = 0; i < meshDescriptions.size(); i++)
-    {
-        const auto &desc = meshDescriptions[i];
-        terrainMeshes.emplace_back(desc.vertBuffer, desc.indBuffer, desc.vertCount, desc.indCount, materials[i],
-                                   desc.bbMin, desc.bbMax, false);
-    }
-
-    return terrainMeshes;
 }
 
 static std::filesystem::path ResolveDirectory(core::CommandBus &cmdBus, const std::filesystem::path &candidate)
@@ -124,22 +106,18 @@ std::shared_ptr<star::StarObject> TerrainFactory::buildTerrain(core::device::Dev
             static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
     }
 
-    std::vector<star::Handle> materialHandles;
-    materialHandles.reserve(materials.size());
+    std::vector<std::unique_ptr<star::IMaterialProvider>> providers;
+    providers.reserve(materials.size());
     for (auto &material : materials)
     {
-        materialHandles.push_back(context.getGraphicsManagers().materialManager.submit(
-            star::core::device::manager::MaterialRequest{std::move(material)}));
+        providers.push_back(std::make_unique<star::MaterialProvider>(std::move(material)));
     }
 
-    auto meshes = loadMeshes(def, materialHandles);
-
-    auto cmd =
-        star::command::CreateObject::Builder()
-            .setLoader(std::make_unique<FromTerrainDirLoader>(def, std::move(materialHandles), std::move(meshes)))
-            .setShaderResolver(std::move(terrainResolver))
-            .setUniqueName(name)
-            .build();
+    auto cmd = star::command::CreateObject::Builder()
+                   .setLoader(std::make_unique<FromTerrainDirLoader>(def, std::move(providers)))
+                   .setShaderResolver(std::move(terrainResolver))
+                   .setUniqueName(name)
+                   .build();
     context.begin().set(cmd).submit();
     cmd.getReply().get()->init(context);
     return cmd.getReply().get();
