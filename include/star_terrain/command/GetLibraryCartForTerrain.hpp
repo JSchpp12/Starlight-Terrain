@@ -1,15 +1,17 @@
 #pragma once
 
 #include "star_terrain/io/CartReadException.hpp"
+#include "star_terrain/io/IFilter.hpp"
 #include "star_terrain/io/PendingLibraryCart.hpp"
 
 #include <star_common/Handle.hpp>
 #include <star_common/IServiceCommandWithReply.hpp>
 
-#include <cstdint>
 #include <expected>
+#include <memory>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace star::terrain::command
 {
@@ -32,14 +34,20 @@ struct GetLibraryCartForTerrain : public star::common::IServiceCommandWithReply<
     }
 
     GetLibraryCartForTerrain() = default;
-    explicit GetLibraryCartForTerrain(star::Handle handle) : handle(std::move(handle))
+
+    GetLibraryCartForTerrain &setHandle(star::Handle handle)
     {
+        this->handle = std::move(handle);
+        return *this;
     }
-    GetLibraryCartForTerrain(star::Handle handle, uint16_t type)
-        : star::common::IServiceCommandWithReply<GetLibraryCartForTerrainResult>(type), handle(std::move(handle))
+
+    GetLibraryCartForTerrain &setFilters(std::vector<std::unique_ptr<star::terrain::IFilter>> filters)
     {
+        this->filters = std::move(filters);
+        return *this;
     }
 
     star::Handle handle{};
+    std::vector<std::unique_ptr<star::terrain::IFilter>> filters;
 };
 } // namespace star::terrain::command

@@ -1,24 +1,27 @@
 #pragma once
 
 #include "star_terrain/io/CartReadException.hpp"
+#include "star_terrain/io/IFilter.hpp"
 
 #include <filesystem>
 #include <future>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace star::terrain
 {
+
 /// @brief Builds a LibraryCart for one terrain on the IO worker.
-/// @details Seeded with the library's shape descriptor; the terrain root travels in the read payload so the reader
-/// stays small enough for the task's inline storage. Call getFuture() before moving the reader into the task.
 class LibraryCartReader
 {
   public:
     using Result = LibraryCartReadResult;
 
     /// @param terrainShapeFile Shape descriptor filename relative to the root passed to operator().
-    explicit LibraryCartReader(std::string terrainShapeFile);
+    /// @param filters Predicates applied to the built cart; a chunk is kept only when every filter keeps it. No
+    /// filters means every chunk is kept.
+    LibraryCartReader(std::string terrainShapeFile, std::vector<std::unique_ptr<IFilter>> filters = {});
 
     /// @brief Construct without a shape file; only valid until a task assigns one. The IO task machinery requires
     /// payloads to be default constructible.
@@ -35,10 +38,15 @@ class LibraryCartReader
     }
 
   private:
+    struct Payload
+    {
+        std::string terrainShapeFile;
+        std::vector<std::unique_ptr<IFilter>> filters;
+    };
+
     [[nodiscard]] Result read(const std::filesystem::path &terrainRoot) const;
 
+    std::unique_ptr<Payload> m_payload;
     std::promise<Result> m_result;
-    // Shared so the reader stays small enough for the IO task's inline payload storage.
-    std::shared_ptr<const std::string> m_terrainShapeFile;
 };
 } // namespace star::terrain

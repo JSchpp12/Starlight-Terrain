@@ -4,6 +4,7 @@
 #include "star_terrain/file_data/CoverageInfo_json.hpp"
 #include "star_terrain/file_data/texture_data/Reader.hpp"
 #include "star_terrain/io/GDALDatasetLoader.hpp"
+#include "star_terrain/io/IFilter.hpp"
 #include "star_terrain/io/LibraryCart.hpp"
 
 #include <starlight/core/logging/LoggingFactory.hpp>
@@ -19,18 +20,21 @@
 
 namespace star::terrain
 {
-LibraryCartReader::LibraryCartReader(std::string terrainShapeFile)
-    : m_terrainShapeFile(std::make_shared<const std::string>(std::move(terrainShapeFile)))
+LibraryCartReader::LibraryCartReader(std::string terrainShapeFile, std::vector<std::unique_ptr<IFilter>> filters)
+    : m_payload(std::make_unique<Payload>(
+          Payload{.terrainShapeFile = std::move(terrainShapeFile), .filters = std::move(filters)}))
 {
 }
 
 LibraryCartReader::Result LibraryCartReader::read(const std::filesystem::path &terrainRoot) const
 {
-    if (m_terrainShapeFile == nullptr)
+    if (m_payload == nullptr || m_payload->terrainShapeFile.empty())
         throw std::runtime_error("Library cart reader has no terrain shape file");
 
+    const std::string &terrainShapeFile = m_payload->terrainShapeFile;
+
     star::core::logging::debug("Building terrain library cart for '", terrainRoot.string(),
-                               "' using shape descriptor '", *m_terrainShapeFile, "'");
+                               "' using shape descriptor '", terrainShapeFile, "'");
 
     auto [readResult, fileInfo] = ReadTerrainTextureInfo((terrainRoot / "height_info.json").string());
     (void)readResult;
@@ -38,7 +42,7 @@ LibraryCartReader::Result LibraryCartReader::read(const std::filesystem::path &t
     const auto chunkCount = fileInfo.chunks.size();
     star::core::logging::debug("Terrain '", terrainRoot.string(), "' declares ", chunkCount, " target chunk(s)");
 
-    const auto shapePath = terrainRoot / std::filesystem::path(*m_terrainShapeFile);
+    const auto shapePath = terrainRoot / std::filesystem::path(terrainShapeFile);
     std::ifstream shapeStream(shapePath);
     if (!shapeStream.is_open())
         throw std::runtime_error("Failed to open terrain shape file: " + shapePath.string());
@@ -70,8 +74,14 @@ LibraryCartReader::Result LibraryCartReader::read(const std::filesystem::path &t
         TerrainTargetInfo{.fullHeightFile = fullHeightFilePath.string(), .offset = worldCenter},
         std::move(fileInfo.chunks));
 
-    star::core::logging::info("Built terrain library cart for '", terrainRoot.string(), "': ", chunkCount,
-                              " chunk(s), height raster '", fullHeightFilePath.string(), "'");
+    for (const auto &filter : m_payload->filters)
+    {
+        cart->applyFilter(filter.get());
+    }
+
+    star::core::logging::info("Built terrain library cart for '", terrainRoot.string(), "': ", cart->chunks().size(),
+                              " chunk(s) kept from ", chunkCount, " declared, height raster '",
+                              fullHeightFilePath.string(), "'");
     return cart;
 }
 

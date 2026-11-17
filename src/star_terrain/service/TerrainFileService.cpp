@@ -290,7 +290,7 @@ void TerrainFileService::onGetLibraryCartForTerrain(command::GetLibraryCartForTe
             return;
         }
 
-        LibraryCartReader reader{library->terrainShapeFile};
+        LibraryCartReader reader{library->terrainShapeFile, std::move(cmd.filters)};
         auto future = reader.getFuture();
 
         auto payload = star::job::tasks::io::ReadPayload<LibraryCartReader>{

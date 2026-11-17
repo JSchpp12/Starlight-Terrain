@@ -3,7 +3,6 @@
 #include "star_terrain/file_data/ChunkInfo.hpp"
 #include "star_terrain/io/TerrainTargetInfo.hpp"
 
-#include <cstddef>
 #include <span>
 #include <vector>
 
@@ -26,12 +25,7 @@ class LibraryCart
     ~LibraryCart() = default;
 
     /// @brief Drop every chunk rejected by a filter. A chunk is kept only when every filter keeps it.
-    void applyFilters(const std::vector<const IFilter *> &filters);
-
-    /// @brief Keep only the chunks at the given indices, preserving their existing order.
-    /// @details Used after loading to drop targets that produced no mesh, so the cart stays the source of truth
-    /// for what the terrain object contains.
-    void retainOnly(std::span<const std::size_t> indices);
+    void applyFilter(const IFilter *filter);
 
     [[nodiscard]] const TerrainTargetInfo &info() const
     {
