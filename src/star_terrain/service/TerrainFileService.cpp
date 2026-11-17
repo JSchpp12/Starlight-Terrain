@@ -293,11 +293,10 @@ void TerrainFileService::onGetLibraryCartForTerrain(command::GetLibraryCartForTe
         LibraryCartReader reader{library->terrainShapeFile, std::move(cmd.filters)};
         auto future = reader.getFuture();
 
-        auto payload = star::job::tasks::io::ReadPayload<LibraryCartReader>{
+        auto task = star::job::tasks::io::CreateReadTask(star::job::tasks::io::ReadPayload<LibraryCartReader>{
             .filePath = std::filesystem::path{library->terrainRootPath},
             .readFunction = std::move(reader),
-            .kind = star::io::PathKind::directory};
-        auto task = star::job::tasks::io::CreateReadTask(std::move(payload));
+            .kind = star::io::PathKind::directory});
         star::command::file_io::ReadFromFile readCommand{std::move(task)};
         m_cmd->submit(readCommand);
 
