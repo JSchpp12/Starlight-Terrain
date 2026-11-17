@@ -47,6 +47,9 @@ class LibraryCartReader
 
     [[nodiscard]] Result read(const std::filesystem::path &terrainRoot) const;
 
+    /// @brief Reads the cart, converting read failures into a Result instead of throwing.
+    [[nodiscard]] Result readResult(const std::filesystem::path &terrainRoot) const;
+
     std::unique_ptr<Payload> m_payload;
 };
 } // namespace star::terrain

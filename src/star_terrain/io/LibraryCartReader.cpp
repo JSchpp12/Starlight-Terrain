@@ -85,26 +85,33 @@ LibraryCartReader::Result LibraryCartReader::read(const std::filesystem::path &t
     return cart;
 }
 
+LibraryCartReader::Result LibraryCartReader::readResult(const std::filesystem::path &terrainRoot) const
+{
+    try
+    {
+        return read(terrainRoot);
+    }
+    catch (const std::exception &e)
+    {
+        star::core::logging::warning("Failed to read terrain library cart for '", terrainRoot.string(),
+                                     "': ", e.what());
+        return std::unexpected(CartReadException{e.what()});
+    }
+    catch (...)
+    {
+        star::core::logging::warning("Failed to read terrain library cart for '", terrainRoot.string(),
+                                     "': unknown error");
+        return std::unexpected(CartReadException{"Terrain library cart read failed"});
+    }
+}
+
 int LibraryCartReader::operator()(const std::filesystem::path &terrainRoot)
 {
-    Result result = [&]() -> Result {
-        try
-        {
-            return read(terrainRoot);
-        }
-        catch (const std::exception &e)
-        {
-            star::core::logging::warning("Failed to read terrain library cart for '", terrainRoot.string(),
-                                         "': ", e.what());
-            return std::unexpected(CartReadException{e.what()});
-        }
-        catch (...)
-        {
-            star::core::logging::warning("Failed to read terrain library cart for '", terrainRoot.string(),
-                                         "': unknown error");
-            return std::unexpected(CartReadException{"Terrain library cart read failed"});
-        }
-    }();
+    star::core::logging::info("Terrain library cart read started for '", terrainRoot.string(), "'");
+
+    Result result = readResult(terrainRoot);
+
+    star::core::logging::info("Terrain library cart read finished for '", terrainRoot.string(), "'");
 
     m_payload->result.set_value(std::move(result));
     return 0;
