@@ -312,6 +312,7 @@ std::unique_ptr<star::core::renderer::RenderPhase> TerrainShadowRenderPhaseProvi
 
     phase->m_frameData->prepRender(c, c.frameTracker().getSetup().getNumFramesInFlight());
     phase->m_renderingContext.targetResolution = vk::Extent2D().setHeight(2048).setWidth(2048);
+    phase->m_renderingContext.initListener(c.getEventBus());
     phase->m_renderTargets = createRenderTargets(c, phase->m_renderingContext);
     phase->m_rawDepthHandles = std::move(m_rawDepthHandles);
 

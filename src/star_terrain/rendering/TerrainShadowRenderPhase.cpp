@@ -61,14 +61,15 @@ void TerrainShadowRenderPhase::recordCommandBuffer(star::StarCommandBuffer &comm
 
 void TerrainShadowRenderPhase::cleanupRender(star::common::IDeviceContext &context)
 {
-    RenderPhase::cleanupRender(context);
-
     auto &c = static_cast<star::core::device::DeviceContext &>(context);
+    m_renderingContext.cleanupListener(c.getEventBus());
     if (m_globalShaderInfo)
     {
         m_globalShaderInfo->cleanupRender(c.getDevice());
         m_globalShaderInfo.reset();
     }
+
+    RenderPhase::cleanupRender(context);
 }
 
 void TerrainShadowRenderPhase::recordPreRenderPassCommands(vk::CommandBuffer buffer,

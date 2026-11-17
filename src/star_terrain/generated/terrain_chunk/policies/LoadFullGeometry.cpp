@@ -14,10 +14,12 @@
 namespace star::terrain
 {
 
-LoadFullGeometry::LoadFullGeometry(TargetChunkInfo chunkInfo, rendering::ElevationType elevationType,
-                                   GDALDataset *sharedDataset)
-    : m_chunkInfo(std::move(chunkInfo)), m_elevationType(elevationType), m_sharedDataset(sharedDataset)
+LoadFullGeometry::LoadFullGeometry(const TerrainTargetInfo *terrainInfo, const ChunkInfo *chunkInfo,
+                                   rendering::ElevationType elevationType, GDALDataset *sharedDataset)
+    : m_terrainInfo(terrainInfo), m_chunkInfo(chunkInfo), m_elevationType(elevationType), m_sharedDataset(sharedDataset)
 {
+    assert(m_terrainInfo != nullptr && "LoadFullGeometry requires terrain target info");
+    assert(m_chunkInfo != nullptr && "LoadFullGeometry requires a target chunk");
 }
 
 LoadedGeometry LoadFullGeometry::operator()() const
@@ -25,8 +27,8 @@ LoadedGeometry LoadFullGeometry::operator()() const
     assert(m_sharedDataset != nullptr);
 
     TerrainDataset dataset =
-        TerrainDataset(m_sharedDataset, m_chunkInfo.northEast, m_chunkInfo.southEast, m_chunkInfo.southWest,
-                       m_chunkInfo.northWest, m_chunkInfo.center, m_chunkInfo.offset);
+        TerrainDataset(m_sharedDataset, m_chunkInfo->cornerNE, m_chunkInfo->cornerSE, m_chunkInfo->cornerSW,
+                       m_chunkInfo->cornerNW, m_chunkInfo->center, m_terrainInfo->offset);
 
     LoadedGeometry loaded = loadGeomInfo(dataset, m_elevationType);
 

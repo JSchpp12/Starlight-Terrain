@@ -1,8 +1,8 @@
 # Starlight-Terrain
 
 Terrain library for the Starlight engine. Provides GeoTIFF-based terrain mesh
-generation, chunk layout, and a renderable `StarObject` subclass for the engine's
-command pipeline.
+generation and a renderable `StarObject` subclass for the engine's command
+pipeline.
 
 ## Top-level include groups (`include/star_terrain/`)
 
@@ -11,7 +11,6 @@ command pipeline.
 | `file_data/`     | Pure data structs describing terrain file inputs (no JSON glue here)   |
 | `serialization/` | `nlohmann::json` `to_json`/`from_json` for the `file_data/` structs      |
 | `generated/`     | `TerrainChunk` — loads a GeoTIFF region and produces a `StarMesh`        |
-| `layout/`        | `TerrainGrid` — arranges chunks into a 2D grid by center coordinates   |
 | `io/`            | Async terrain-file readers (`TerrainShapeInfoLoader`, `ReadResult`)     |
 | `rendering/`     | `TerrainObject` (renderable), `FromTerrainDirLoader` (command loader),  |
 |                  | `TerrainObjectDefinition`, `TerrainRenderingType`                       |
@@ -29,7 +28,7 @@ command pipeline.
 - `star::terrain::rendering::Type` — `enum class` (`Flat`, `Real`) with
   `toString(Type)`.
 - `star::terrain::TerrainChunk`, `ChunkInfo`, `CoverageInfo`, `TextureDataInfo`,
-  `TerrainGrid`, `CoverageInfo` loaders.
+  `CoverageInfo` loaders.
 
 ## CMake
 

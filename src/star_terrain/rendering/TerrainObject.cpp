@@ -8,9 +8,11 @@
 namespace star::terrain
 {
 
-TerrainObject::TerrainObject(ColoringMode colorMode, std::vector<std::unique_ptr<star::IMaterialProvider>> materials,
-                             star::Handle vertexShader, star::Handle fragmentShader, TerrainObjectDefinition def)
-    : star::StarObject(std::move(materials)), m_colorDrawMode(colorMode), m_def(std::move(def))
+TerrainObject::TerrainObject(ColoringMode colorMode, std::vector<rendering::ChunkMeshDescription> meshDescriptions,
+                             std::vector<std::unique_ptr<star::IMaterialProvider>> materials, star::Handle vertexShader,
+                             star::Handle fragmentShader)
+    : star::StarObject(std::move(materials)), m_colorDrawMode(colorMode),
+      m_meshDescriptions(std::move(meshDescriptions))
 {
     m_vertexShaderHandle = vertexShader;
     m_fragmentShaderHandle = fragmentShader;
@@ -50,7 +52,7 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
 {
     (void)context;
 
-    const auto &meshDescriptions = m_def.geometry.meshDescriptions;
+    const auto &meshDescriptions = m_meshDescriptions;
     assert(meshDescriptions.size() == m_materialHandles.size() && "Every chunk should have its own material");
 
     std::vector<star::StarMesh> meshes;
@@ -61,6 +63,10 @@ std::vector<star::StarMesh> TerrainObject::loadMeshes(star::core::device::Device
         meshes.emplace_back(desc.vertBuffer, desc.indBuffer, desc.vertCount, desc.indCount, m_materialHandles[i],
                             desc.bbMin, desc.bbMax, false);
     }
+
+    // The descriptions were only needed to build the meshes.
+    m_meshDescriptions.clear();
+    m_meshDescriptions.shrink_to_fit();
 
     return meshes;
 }

@@ -1,106 +1,134 @@
 #include "star_terrain/TerrainFactory.hpp"
 
-#include "star_terrain/file_data/texture_data/Reader.hpp"
+#include "star_terrain/Enums.hpp"
+#include "star_terrain/generated/terrain_chunk/policies/LoadFullGeometry.hpp"
+#include "star_terrain/io/TerrainShapeLoader.hpp"
+#include "star_terrain/rendering/ChunkUpload.hpp"
 #include "star_terrain/rendering/FromTerrainDirLoader.hpp"
+#include "star_terrain/rendering/TerrainObjectDefinition.hpp"
 #include "star_terrain/rendering/TerrainTextureLoader.hpp"
 
 #include <starlight/ShaderResolver.hpp>
 #include <starlight/command/CreateObject.hpp>
-#include <starlight/command/FileIO/GetPath.hpp>
 #include <starlight/common/materials/TextureMaterial.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
 #include <starlight/core/device/managers/Material.hpp>
+#include <starlight/core/logging/LoggingFactory.hpp>
 #include <starlight/material/MaterialProvider.hpp>
 #include <starlight/object/StarObject.hpp>
 #include <starlight/virtual/StarMesh.hpp>
 
-#include <cassert>
-#include <tuple>
+#include <exception>
+#include <span>
 #include <utility>
 
 namespace star::terrain
 {
 static std::vector<std::unique_ptr<star::StarMaterial>> CreateTerrainMaterials(core::device::DeviceContext &context,
-                                                                               const TerrainObjectDefinition &def)
+                                                                               ColoringMode colorMode,
+                                                                               const TerrainObjectDefinition &def,
+                                                                               std::span<const ChunkInfo> chunks)
 {
-    // Store by value: the tuple returned by ReadTerrainTextureInfo is a temporary and
-    // binding a reference to std::get<1> of it does not extend its lifetime.
-    const TextureDataInfo fileInfo =
-        std::get<1>(ReadTerrainTextureInfo((def.geometry.terrainDir / "height_info.json").string()));
-
-    if (def.colorMode != ColoringMode::color)
+    if (colorMode != ColoringMode::color)
     {
         std::vector<std::unique_ptr<star::StarMaterial>> materials;
-        materials.reserve(fileInfo.chunks.size());
-        for (size_t i = 0; i < fileInfo.chunks.size(); i++)
+        materials.reserve(chunks.size());
+        for (size_t i = 0; i < chunks.size(); i++)
         {
             materials.push_back(std::make_unique<star::StarMaterial>());
         }
         return materials;
     }
 
-    return LoadTerrainTextures(context, def.geometry.terrainDir, fileInfo, def.textures);
+    return LoadTerrainTextures(context, def.geometry.terrainDir, chunks, def.textures);
 }
 
-static std::filesystem::path ResolveDirectory(core::CommandBus &cmdBus, const std::filesystem::path &candidate)
+/// @brief Load every target chunk as full geometry on worker threads, then upload the payloads to GPU buffers on the
+/// main thread.
+static std::vector<rendering::ChunkMeshDescription> BuildFullGeometryChunkDescriptions(
+    core::device::DeviceContext &context, const TerrainTargetInfo &terrainInfo, std::span<const ChunkInfo> chunks,
+    rendering::ElevationType elevationType)
 {
-    star::command::file_io::GetPath cmd;
-    cmd.setCandidate(candidate).setKind(star::io::PathKind::directory);
-    cmdBus.submit(cmd);
-    const auto reply = cmd.getReply().get();
-    if (!reply)
+    TerrainShapeLoader<LoadFullGeometry> loader(&terrainInfo, chunks, elevationType);
+    auto loadedChunks = loader();
+
+    std::vector<rendering::ChunkMeshDescription> meshDescriptions;
+    meshDescriptions.reserve(loadedChunks.size());
+
+    for (std::size_t i = 0; i < loadedChunks.size(); i++)
     {
-        STAR_THROW("TerrainFactory failed to resolve directory: " + reply.error().toString());
+        auto &loadedChunk = loadedChunks[i];
+        if (!loadedChunk)
+            STAR_THROW("Failed to load terrain chunk: " + loadedChunk.error().detail);
+
+        try
+        {
+            meshDescriptions.push_back(rendering::uploadChunk(std::move(*loadedChunk), context));
+        }
+        catch (const std::exception &e)
+        {
+            STAR_THROW(std::string{"Failed to upload terrain chunk: "} + e.what());
+        }
     }
-    return reply.value();
+
+    return meshDescriptions;
 }
 
-TerrainFactory::Output TerrainFactory::buildTerrains(core::device::DeviceContext &context,
-                                                     rendering::TerrainGeometryDefinition geometry,
-                                                     const std::filesystem::path &shaderDir,
-                                                     bool aggressiveTextureLoading)
+TerrainFactory::Output TerrainFactory::buildTerrains(
+    core::device::DeviceContext &context, rendering::TerrainGeometryDefinition geometry,
+    const TerrainTargetInfo &terrainInfo, std::span<const ChunkInfo> chunks, const std::filesystem::path &shapeFilePath,
+    const std::filesystem::path &shaderDir, bool aggressiveTextureLoading)
 {
     Output output;
 
-    geometry.terrainDir = ResolveDirectory(context.getCmdBus(), geometry.terrainDir);
+    std::vector<rendering::ChunkMeshDescription> meshDescriptions;
+    switch (geometry.shapeRepresentation)
+    {
+    case rendering::Representation::Geometry:
+        meshDescriptions = BuildFullGeometryChunkDescriptions(context, terrainInfo, chunks, geometry.defaultRenderType);
+        break;
+    case rendering::Representation::Height_Map:
+        STAR_THROW("The height map terrain shape representation is not implemented yet");
+    default:
+        STAR_THROW("Unknown terrain shape representation");
+    }
 
     star::ShaderResolver colorResolver =
         star::ShaderResolver::Builder{context.getCmdBus()}
             .setShader(star::Shader_Stage::vertex, (shaderDir / "color.vert").string())
             .setShader(star::Shader_Stage::fragment, (shaderDir / "color.frag").string())
             .build();
-    output.colorTerrain =
-        buildTerrain(context, geometry, std::move(colorResolver), "terrain_color", false, aggressiveTextureLoading);
+    output.colorTerrain = buildTerrain(context, geometry, chunks, meshDescriptions, std::move(colorResolver),
+                                       "terrain_color", false, aggressiveTextureLoading);
 
     star::ShaderResolver shadowResolver =
         star::ShaderResolver::Builder{context.getCmdBus()}
             .setShader(star::Shader_Stage::vertex, (shaderDir / "shadow_cast.vert").string())
             .setShader(star::Shader_Stage::fragment, (shaderDir / "shadow_cast.frag").string())
             .build();
-    output.greyscaleTerrain =
-        buildTerrain(context, geometry, std::move(shadowResolver), "terrain_depth", true, aggressiveTextureLoading);
+    output.greyscaleTerrain = buildTerrain(context, geometry, chunks, meshDescriptions, std::move(shadowResolver),
+                                           "terrain_depth", true, aggressiveTextureLoading);
 
-    output.shapeFilePath = geometry.terrainDir / "Shape.json";
+    output.shapeFilePath = shapeFilePath;
     output.defaultRenderingType = geometry.defaultRenderType;
     return output;
 }
 
-std::shared_ptr<star::StarObject> TerrainFactory::buildTerrain(core::device::DeviceContext &context,
-                                                               const rendering::TerrainGeometryDefinition &geometry,
-                                                               star::ShaderResolver terrainResolver,
-                                                               const std::string &name, bool useGreyscale,
-                                                               bool aggressiveTextureLoading)
+std::shared_ptr<star::StarObject> TerrainFactory::buildTerrain(
+    core::device::DeviceContext &context, const rendering::TerrainGeometryDefinition &geometry,
+    std::span<const ChunkInfo> chunks, const std::vector<rendering::ChunkMeshDescription> &meshDescriptions,
+    star::ShaderResolver terrainResolver, const std::string &name, bool useGreyscale, bool aggressiveTextureLoading)
 {
+    const ColoringMode colorMode = useGreyscale ? ColoringMode::greyscale : ColoringMode::color;
     TerrainObjectDefinition def{.geometry = geometry,
-                                .colorMode = useGreyscale ? ColoringMode::greyscale : ColoringMode::color,
                                 .textures = aggressiveTextureLoading ? TerrainTextureLoaderPlan::Aggressive()
                                                                      : TerrainTextureLoaderPlan::Lazy()};
 
-    auto materials = CreateTerrainMaterials(context, def);
+    auto materials = CreateTerrainMaterials(context, colorMode, def, chunks);
 
     // Preload path-backed textures before the recipes are moved into the manager.
-    if (def.colorMode == star::terrain::ColoringMode::color)
+    if (colorMode == ColoringMode::color)
     {
         for (auto &material : materials)
             static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
@@ -114,7 +142,7 @@ std::shared_ptr<star::StarObject> TerrainFactory::buildTerrain(core::device::Dev
     }
 
     auto cmd = star::command::CreateObject::Builder()
-                   .setLoader(std::make_unique<FromTerrainDirLoader>(def, std::move(providers)))
+                   .setLoader(std::make_unique<FromTerrainDirLoader>(colorMode, meshDescriptions, std::move(providers)))
                    .setShaderResolver(std::move(terrainResolver))
                    .setUniqueName(name)
                    .build();

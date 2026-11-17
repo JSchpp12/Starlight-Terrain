@@ -7,19 +7,19 @@
 namespace star::terrain
 {
 
-FromTerrainDirLoader::FromTerrainDirLoader(TerrainObjectDefinition def,
+FromTerrainDirLoader::FromTerrainDirLoader(ColoringMode colorMode,
+                                           std::vector<rendering::ChunkMeshDescription> meshDescriptions,
                                            std::vector<std::unique_ptr<star::IMaterialProvider>> materials)
-    : m_def(std::move(def)), m_materials(std::move(materials))
+    : m_colorMode(colorMode), m_meshDescriptions(std::move(meshDescriptions)), m_materials(std::move(materials))
 {
 }
 
 std::shared_ptr<star::StarObject> FromTerrainDirLoader::load(star::core::device::DeviceContext & /*context*/,
                                                              star::ShaderResolver &shaderResolver)
 {
-    const ColoringMode colorMode = m_def.colorMode;
-    return std::make_shared<TerrainObject>(colorMode, std::move(m_materials),
+    return std::make_shared<TerrainObject>(m_colorMode, std::move(m_meshDescriptions), std::move(m_materials),
                                            shaderResolver.resolve(star::Shader_Stage::vertex),
-                                           shaderResolver.resolve(star::Shader_Stage::fragment), std::move(m_def));
+                                           shaderResolver.resolve(star::Shader_Stage::fragment));
 }
 
 } // namespace star::terrain

@@ -2,16 +2,13 @@
 
 #include "star_terrain/file_data/ChunkInfo.hpp"
 #include "star_terrain/io/GDALDatasetLoader.hpp"
-#include "star_terrain/io/TargetChunkInfo.hpp"
+#include "star_terrain/io/TerrainTargetInfo.hpp"
 #include "star_terrain/rendering/TerrainRenderingType.hpp"
-
-#include <glm/glm.hpp>
 
 #include <concepts>
 #include <expected>
-#include <filesystem>
+#include <span>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace star::terrain
@@ -31,19 +28,20 @@ struct ChunkLoadError
 
 /// A chunk shape loading policy.
 template <typename PolicyT>
-concept ChunkLoadPolicy =
-    requires(TargetChunkInfo chunkInfo, rendering::ElevationType elevationType, GDALDataset *dataset) {
-        typename PolicyT::Payload;
-        PolicyT{chunkInfo, elevationType, dataset};
-        { std::declval<const PolicyT &>()() } -> std::same_as<typename PolicyT::Payload>;
-    };
+concept ChunkLoadPolicy = requires(const TerrainTargetInfo *terrainInfo, const ChunkInfo *chunkInfo,
+                                   rendering::ElevationType elevationType, GDALDataset *dataset) {
+    typename PolicyT::Payload;
+    PolicyT{terrainInfo, chunkInfo, elevationType, dataset};
+    { std::declval<const PolicyT &>()() } -> std::same_as<typename PolicyT::Payload>;
+};
 
-/// Orchestrates loading the shape of every chunk in a terrain.
+/// Orchestrates loading the shape of every target chunk in a terrain.
+/// @details The terrain info and target list are borrowed, not owned: they must outlive the loader.
 template <ChunkLoadPolicy PolicyT> class TerrainShapeLoader
 {
   public:
-    TerrainShapeLoader(std::filesystem::path heightFilePath, std::vector<ChunkInfo> chunks,
-                       const glm::dvec3 &worldCenter, rendering::ElevationType elevationType);
+    TerrainShapeLoader(const TerrainTargetInfo *terrainInfo, std::span<const ChunkInfo> chunks,
+                       rendering::ElevationType elevationType);
 
     /// Load every chunk in parallel, preserving input order in the result.
     /// Each entry holds either the chunk's loaded payload or the error that
@@ -51,9 +49,8 @@ template <ChunkLoadPolicy PolicyT> class TerrainShapeLoader
     std::vector<std::expected<typename PolicyT::Payload, ChunkLoadError>> operator()() const;
 
   private:
-    std::filesystem::path m_heightFilePath;
-    std::vector<ChunkInfo> m_chunks;
-    glm::dvec3 m_worldCenter;
+    const TerrainTargetInfo *m_terrainInfo{nullptr};
+    std::span<const ChunkInfo> m_chunks;
     rendering::ElevationType m_elevationType;
     GDALDatasetLoader m_datasetLoader;
 };
