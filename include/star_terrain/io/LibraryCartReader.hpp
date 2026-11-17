@@ -34,7 +34,7 @@ class LibraryCartReader
     /// @brief Future resolving once the read task runs. Call before moving the reader.
     [[nodiscard]] std::future<Result> getFuture()
     {
-        return m_result.get_future();
+        return m_payload->result.get_future();
     }
 
   private:
@@ -42,11 +42,11 @@ class LibraryCartReader
     {
         std::string terrainShapeFile;
         std::vector<std::unique_ptr<IFilter>> filters;
+        std::promise<Result> result;
     };
 
     [[nodiscard]] Result read(const std::filesystem::path &terrainRoot) const;
 
     std::unique_ptr<Payload> m_payload;
-    std::promise<Result> m_result;
 };
 } // namespace star::terrain

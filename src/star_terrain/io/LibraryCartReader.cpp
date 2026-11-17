@@ -106,7 +106,7 @@ int LibraryCartReader::operator()(const std::filesystem::path &terrainRoot)
         }
     }();
 
-    m_result.set_value(std::move(result));
+    m_payload->result.set_value(std::move(result));
     return 0;
 }
 } // namespace star::terrain
