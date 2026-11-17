@@ -1,7 +1,5 @@
 #include "star_terrain/rendering/TerrainTextureLoader.hpp"
 
-#include "star_terrain/file_data/ChunkInfo.hpp"
-
 #include <starlight/common/helpers/FileHelpers.hpp>
 #include <starlight/core/Exceptions.hpp>
 #include <starlight/core/device/DeviceContext.hpp>
@@ -9,7 +7,6 @@
 #include <optional>
 #include <sstream>
 #include <variant>
-
 namespace star::terrain
 {
 static std::optional<std::filesystem::path> CheckForCompressedTexture(const std::filesystem::path &terrainDir,
@@ -22,15 +19,15 @@ static std::optional<std::filesystem::path> CheckForCompressedTexture(const std:
     return std::nullopt;
 }
 
-static std::filesystem::path ResolveTexturePath(const std::filesystem::path &terrainDir, const ChunkInfo &chunk)
+static std::filesystem::path ResolveTexturePath(const std::filesystem::path &terrainDir, const std::string &textureFile)
 {
-    std::optional<std::filesystem::path> found = CheckForCompressedTexture(terrainDir, chunk.textureFile);
+    std::optional<std::filesystem::path> found = CheckForCompressedTexture(terrainDir, textureFile);
 
     if (!found.has_value())
     {
         // Fall back to searching the directory for a matching compressed file.
         auto files =
-            star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(terrainDir.string(), chunk.textureFile);
+            star::file_helpers::FindFilesInDirectoryWithSameNameIgnoreFileType(terrainDir.string(), textureFile);
         for (const auto &file : files)
         {
             if (file.extension() == ".ktx2")
@@ -44,7 +41,7 @@ static std::filesystem::path ResolveTexturePath(const std::filesystem::path &ter
     if (!found.has_value())
     {
         std::ostringstream oss;
-        oss << "Failed to find matching texture for file: " << chunk.textureFile << std::endl
+        oss << "Failed to find matching texture for file: " << textureFile << std::endl
             << "Ensure terrains are prepared with compressed textures" << std::endl;
         STAR_THROW(oss.str());
     }
@@ -53,13 +50,13 @@ static std::filesystem::path ResolveTexturePath(const std::filesystem::path &ter
 }
 
 std::vector<std::filesystem::path> ResolveTerrainTexturePaths(const std::filesystem::path &terrainDir,
-                                                              const TextureDataInfo &fileInfo)
+                                                              std::span<const ChunkInfo> chunks)
 {
     std::vector<std::filesystem::path> paths;
-    paths.reserve(fileInfo.chunks.size());
-    for (const auto &chunk : fileInfo.chunks)
+    paths.reserve(chunks.size());
+    for (const auto &chunk : chunks)
     {
-        paths.push_back(ResolveTexturePath(terrainDir, chunk));
+        paths.push_back(ResolveTexturePath(terrainDir, chunk.textureFile));
     }
     return paths;
 }
@@ -71,9 +68,9 @@ TerrainTextureMaterials TerrainTextureLoaderPlan::load(core::device::DeviceConte
 }
 
 TerrainTextureMaterials LoadTerrainTextures(core::device::DeviceContext &context,
-                                            const std::filesystem::path &terrainDir, const TextureDataInfo &fileInfo,
+                                            const std::filesystem::path &terrainDir, std::span<const ChunkInfo> chunks,
                                             const TerrainTextureLoaderPlan &plan)
 {
-    return plan.load(context, ResolveTerrainTexturePaths(terrainDir, fileInfo));
+    return plan.load(context, ResolveTerrainTexturePaths(terrainDir, chunks));
 }
 } // namespace star::terrain

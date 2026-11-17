@@ -1,6 +1,7 @@
 #pragma once
 
-#include "star_terrain/io/TargetChunkInfo.hpp"
+#include "star_terrain/file_data/ChunkInfo.hpp"
+#include "star_terrain/io/TerrainTargetInfo.hpp"
 #include "star_terrain/rendering/TerrainRenderingType.hpp"
 #include "star_terrain/rendering/geometry/FullTerrainVertex.hpp"
 
@@ -31,7 +32,9 @@ class LoadFullGeometry
   public:
     using Payload = LoadedGeometry;
 
-    LoadFullGeometry(TargetChunkInfo chunkInfo, rendering::ElevationType elevationType, GDALDataset *sharedDataset);
+    /// @brief Borrows the terrain info and target chunk; both must outlive this policy instance.
+    LoadFullGeometry(const TerrainTargetInfo *terrainInfo, const ChunkInfo *chunkInfo,
+                     rendering::ElevationType elevationType, GDALDataset *sharedDataset);
 
     /// @brief Load the geometry for this chunk from the provided dataset
     LoadedGeometry operator()() const;
@@ -48,7 +51,8 @@ class LoadFullGeometry
         }
     };
 
-    TargetChunkInfo m_chunkInfo;
+    const TerrainTargetInfo *m_terrainInfo{nullptr};
+    const ChunkInfo *m_chunkInfo{nullptr};
     rendering::ElevationType m_elevationType;
     GDALDataset *m_sharedDataset{nullptr};
 

@@ -6,17 +6,20 @@
 
 #include <tbb/tbb.h>
 
+#include <cassert>
 #include <exception>
-#include <utility>
+#include <filesystem>
 
 namespace star::terrain
 {
 template <ChunkLoadPolicy PolicyT>
-TerrainShapeLoader<PolicyT>::TerrainShapeLoader(std::filesystem::path heightFilePath, std::vector<ChunkInfo> chunks,
-                                                const glm::dvec3 &worldCenter, rendering::ElevationType elevationType)
-    : m_heightFilePath(std::move(heightFilePath)), m_chunks(std::move(chunks)), m_worldCenter(worldCenter),
-      m_elevationType(elevationType), m_datasetLoader(m_heightFilePath)
+TerrainShapeLoader<PolicyT>::TerrainShapeLoader(const TerrainTargetInfo *terrainInfo, std::span<const ChunkInfo> chunks,
+                                                rendering::ElevationType elevationType)
+    : m_terrainInfo(terrainInfo), m_chunks(chunks), m_elevationType(elevationType),
+      m_datasetLoader(terrainInfo != nullptr ? std::filesystem::path{terrainInfo->fullHeightFile}
+                                             : std::filesystem::path{})
 {
+    assert(m_terrainInfo != nullptr && "TerrainShapeLoader requires terrain target info");
 }
 
 template <ChunkLoadPolicy PolicyT>
@@ -41,10 +44,7 @@ std::vector<std::expected<typename PolicyT::Payload, ChunkLoadError>> TerrainSha
                 continue;
             }
 
-            PolicyT policy{TargetChunkInfo{m_heightFilePath.string(), m_chunks[i].cornerNE, m_chunks[i].cornerSE,
-                                           m_chunks[i].cornerSW, m_chunks[i].cornerNW, m_worldCenter,
-                                           m_chunks[i].center},
-                           m_elevationType, dataset->get()};
+            PolicyT policy{m_terrainInfo, &m_chunks[i], m_elevationType, dataset->get()};
 
             try
             {

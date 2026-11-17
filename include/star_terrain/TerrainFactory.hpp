@@ -1,5 +1,7 @@
 #pragma once
 
+#include "star_terrain/file_data/ChunkInfo.hpp"
+#include "star_terrain/rendering/ChunkMeshDescription.hpp"
 #include "star_terrain/rendering/TerrainGeometryDefinition.hpp"
 #include "star_terrain/rendering/TerrainObjectDefinition.hpp"
 
@@ -8,6 +10,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -35,17 +38,17 @@ class TerrainFactory
         rendering::ElevationType defaultRenderingType;
     };
 
-    /// @param shaderDir Directory holding the terrain shaders. May be a media-relative candidate.
-    /// Both this directory and the geometry's terrainDir are resolved through the IOService
-    /// (GetPath command) before anything is built; loaders and the reported shapeFilePath
-    /// receive the resolved directories.
+    /// @brief Collect the terrain's target chunks, load their geometry, and build the color and shadow objects.
+    /// @details The geometry's terrainDir is resolved through the IOService (GetPath command) before anything is
+    /// built; the reported shapeFilePath is built from the resolved terrain directory.
     static Output buildTerrains(core::device::DeviceContext &context, rendering::TerrainGeometryDefinition geometry,
                                 const std::filesystem::path &shaderDir, bool aggressiveTextureLoading);
 
   private:
-    static std::shared_ptr<star::StarObject> buildTerrain(core::device::DeviceContext &context,
-                                                          const rendering::TerrainGeometryDefinition &geometry,
-                                                          star::ShaderResolver terrainResolver, const std::string &name,
-                                                          bool useGreyscale, bool aggressiveTextureLoading);
+    static std::shared_ptr<star::StarObject> buildTerrain(
+        core::device::DeviceContext &context, const rendering::TerrainGeometryDefinition &geometry,
+        std::span<const ChunkInfo> chunks, const std::vector<rendering::ChunkMeshDescription> &meshDescriptions,
+        star::ShaderResolver terrainResolver, const std::string &name, bool useGreyscale,
+        bool aggressiveTextureLoading);
 };
 } // namespace star::terrain

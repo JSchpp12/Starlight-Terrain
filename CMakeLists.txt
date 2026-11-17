@@ -55,8 +55,12 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/rendering/TerrainChunkInfo.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/layout/TerrainGrid.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/ReadResult.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/LibraryCart.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/IFilter.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/PendingLibraryCart.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainLibrary.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeInfoLoader.hpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TargetChunkInfo.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainTargetInfo.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeLoader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/DatasetHandle.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/GDALDatasetLoader.hpp
@@ -67,6 +71,7 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/TextureDataInfo_json.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/ChunkInfo_json.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/CoverageInfo_json.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/service/TerrainFileService.hpp
 )
 
 set(${PROJECT_NAME}_SOURCES
@@ -81,7 +86,6 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/texture_loading/AggressiveLoadingTexturePlan.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/policies/ShadowDepthReleasePolicy.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/policies/ShadowDepthReacquirePolicy.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainGeometryDefinition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/ChunkUpload.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/rendering/TerrainShadowRenderPhaseProvider.cpp
@@ -97,10 +101,14 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainShapeInfoLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainShapeLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/GDALDatasetLoader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/LibraryCart.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/PendingLibraryCart.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainLibrary.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/texture_data/Reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/TextureDataInfo_json.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/ChunkInfo_json.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/CoverageInfo_json.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/service/TerrainFileService.cpp
 )
 
 add_library(${PROJECT_NAME} STATIC

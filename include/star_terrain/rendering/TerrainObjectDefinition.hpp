@@ -3,8 +3,6 @@
 #include "star_terrain/rendering/TerrainGeometryDefinition.hpp"
 #include "star_terrain/rendering/TerrainTextureLoaderPlan.hpp"
 
-#include <filesystem>
-
 namespace star::terrain
 {
 
