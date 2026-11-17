@@ -1,9 +1,9 @@
 #pragma once
 
 #include "star_terrain/file_data/ChunkInfo.hpp"
+#include "star_terrain/io/TerrainTargetInfo.hpp"
 #include "star_terrain/rendering/ChunkMeshDescription.hpp"
 #include "star_terrain/rendering/TerrainGeometryDefinition.hpp"
-#include "star_terrain/rendering/TerrainObjectDefinition.hpp"
 
 #include <starlight/ShaderResolver.hpp>
 #include <starlight/virtual/StarMesh.hpp>
@@ -38,11 +38,14 @@ class TerrainFactory
         rendering::ElevationType defaultRenderingType;
     };
 
-    /// @brief Collect the terrain's target chunks, load their geometry, and build the color and shadow objects.
-    /// @details The geometry's terrainDir is resolved through the IOService (GetPath command) before anything is
-    /// built; the reported shapeFilePath is built from the resolved terrain directory.
+    /// @brief Load the chunks' geometry and build the color and shadow objects.
+    /// @param terrainInfo Terrain-wide data (height raster + world offset) shared by the chunks.
+    /// @param chunks The target chunks selected for this terrain.
+    /// @param shapeFilePath The terrain's shape descriptor, used for the image-metric record.
     static Output buildTerrains(core::device::DeviceContext &context, rendering::TerrainGeometryDefinition geometry,
-                                const std::filesystem::path &shaderDir, bool aggressiveTextureLoading);
+                                const TerrainTargetInfo &terrainInfo, std::span<const ChunkInfo> chunks,
+                                const std::filesystem::path &shapeFilePath, const std::filesystem::path &shaderDir,
+                                bool aggressiveTextureLoading);
 
   private:
     static std::shared_ptr<star::StarObject> buildTerrain(

@@ -1,7 +1,7 @@
 #pragma once
 
+#include "star_terrain/Enums.hpp"
 #include "star_terrain/rendering/ChunkMeshDescription.hpp"
-#include "star_terrain/rendering/TerrainObjectDefinition.hpp"
 
 #include <starlight/command/detail/create_object/ObjectLoader.hpp>
 #include <starlight/material/IMaterialProvider.hpp>
@@ -17,13 +17,13 @@ namespace star::terrain
 class FromTerrainDirLoader : public star::command::create_object::ObjectLoader
 {
   public:
-    FromTerrainDirLoader(TerrainObjectDefinition def, std::vector<rendering::ChunkMeshDescription> meshDescriptions,
+    FromTerrainDirLoader(ColoringMode colorMode, std::vector<rendering::ChunkMeshDescription> meshDescriptions,
                          std::vector<std::unique_ptr<star::IMaterialProvider>> materials);
     std::shared_ptr<star::StarObject> load(star::core::device::DeviceContext &context,
                                            star::ShaderResolver &shaderResolver);
 
   private:
-    TerrainObjectDefinition m_def;
+    ColoringMode m_colorMode;
     std::vector<rendering::ChunkMeshDescription> m_meshDescriptions;
     std::vector<std::unique_ptr<star::IMaterialProvider>> m_materials;
 };

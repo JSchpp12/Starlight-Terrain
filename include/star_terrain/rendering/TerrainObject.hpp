@@ -1,7 +1,8 @@
 #pragma once
 
+#include "star_terrain/Enums.hpp"
 #include "star_terrain/rendering/ChunkMeshDescription.hpp"
-#include "star_terrain/rendering/TerrainObjectDefinition.hpp"
+#include "star_terrain/rendering/TerrainRenderingType.hpp"
 
 #include "starlight/object/StarObject.hpp"
 #include "starlight/virtual/StarMesh.hpp"

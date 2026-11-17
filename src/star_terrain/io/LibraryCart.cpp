@@ -20,7 +20,7 @@ void LibraryCart::applyFilters(const std::vector<const IFilter *> &filters)
     std::vector<ChunkInfo> working;
     working.reserve(m_chunks.size());
 
-    for (const auto &chunk : m_chunks)
+    for (auto &chunk : m_chunks)
     {
         bool keep = true;
         for (const IFilter *filter : filters)
@@ -33,7 +33,7 @@ void LibraryCart::applyFilters(const std::vector<const IFilter *> &filters)
         }
 
         if (keep)
-            working.push_back(chunk);
+            working.push_back(std::move(chunk));
     }
 
     m_chunks = std::move(working);

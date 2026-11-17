@@ -22,6 +22,7 @@ endif()
 
 set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/TerrainFactory.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/Enums.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/util/Distance.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/policies/LoadFullGeometry.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/generated/terrain_chunk/TerrainDataset.hpp
@@ -58,7 +59,12 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/LibraryCart.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/IFilter.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/PendingLibraryCart.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/PendingTerrainLibrary.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/CartReadException.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainLibrary.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainLibraryReader.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainLibraryEntryReader.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/LibraryCartReader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeInfoLoader.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainTargetInfo.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/io/TerrainShapeLoader.hpp
@@ -72,6 +78,9 @@ set(${PROJECT_NAME}_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/ChunkInfo_json.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/file_data/CoverageInfo_json.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/service/TerrainFileService.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/command/LibraryRegistrationTypes.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/command/GetAllTerrainLibraryRegistrations.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/star_terrain/command/GetLibraryCartForTerrain.hpp
 )
 
 set(${PROJECT_NAME}_SOURCES
@@ -103,12 +112,16 @@ set(${PROJECT_NAME}_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/GDALDatasetLoader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/LibraryCart.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/PendingLibraryCart.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainLibrary.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainLibraryReader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/TerrainLibraryEntryReader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/io/LibraryCartReader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/texture_data/Reader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/TextureDataInfo_json.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/ChunkInfo_json.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/file_data/CoverageInfo_json.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/service/TerrainFileService.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/command/GetAllTerrainLibraryRegistrations.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/star_terrain/command/GetLibraryCartForTerrain.cpp
 )
 
 add_library(${PROJECT_NAME} STATIC

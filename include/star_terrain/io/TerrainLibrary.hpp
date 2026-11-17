@@ -1,12 +1,16 @@
 #pragma once
 
+#include <string>
+
 namespace star::terrain
 {
-/// @brief Placeholder for the terrain file library, mirroring `star::skybox::io::SkyboxLibraryReader`.
-/// @details Intentionally blank: no scan or read behaviour yet.
-class TerrainLibrary
+/// @brief One terrain library: its folder and the shape descriptor inside it.
+/// @details Produced lazily by the terrain file service; the shape file is relative to the root path.
+struct TerrainLibrary
 {
-  public:
-    TerrainLibrary() = default;
+    /// @brief Resolved absolute path of the terrain folder.
+    std::string terrainRootPath;
+    /// @brief Shape descriptor filename relative to terrainRootPath ("Shape.json" or "<id>.json").
+    std::string terrainShapeFile;
 };
 } // namespace star::terrain
