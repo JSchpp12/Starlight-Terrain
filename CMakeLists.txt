@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.26)
 project(starlight_terrain
     DESCRIPTION "Terrain library for Starlight"
     LANGUAGES CXX
-    VERSION 1.2.0
+    VERSION 1.2.1
 )
 
 find_package(GDAL CONFIG REQUIRED)

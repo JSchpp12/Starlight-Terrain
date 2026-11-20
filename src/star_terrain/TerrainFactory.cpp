@@ -127,13 +127,6 @@ std::shared_ptr<star::StarObject> TerrainFactory::buildTerrain(
 
     auto materials = CreateTerrainMaterials(context, colorMode, def, chunks);
 
-    // Preload path-backed textures before the recipes are moved into the manager.
-    if (colorMode == ColoringMode::color)
-    {
-        for (auto &material : materials)
-            static_cast<star::TextureMaterial *>(material.get())->preloadTexture(context);
-    }
-
     std::vector<std::unique_ptr<star::IMaterialProvider>> providers;
     providers.reserve(materials.size());
     for (auto &material : materials)

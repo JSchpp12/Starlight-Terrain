@@ -1,5 +1,7 @@
 #pragma once
 
+#include <starlight/core/Exceptions.hpp>
+
 #include <gdal_priv.h>
 
 namespace star::terrain
@@ -70,7 +72,14 @@ struct DatasetHandle
     void close()
     {
         if (ptr)
-            GDALClose(ptr);
+        {
+            if (GDALClose(ptr) != CE_None)
+            {
+                star::core::logging::warning("An error occurred while closing gdal");
+            }
+
+            ptr = nullptr;
+        }
     }
 };
 } // namespace star::terrain

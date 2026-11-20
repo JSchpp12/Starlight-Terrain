@@ -43,9 +43,9 @@ void TerrainShadowRenderPhase::updateDependentData(star::core::device::DeviceCon
     auto result = m_frameData->frameUpdate(context, priorSync);
     for (const auto &w : result.waits)
     {
-        star::core::transfer::RegisterTransferWait(context, m_commandBuffer, w.handle, w.semaphore, w.signalValue,
+        star::core::transfer::RegisterTransferWait(context, m_commandBuffer, w.transferTargetResource, w.record,
                                                    w.waitStage);
-        m_renderingContext.addBufferToRenderingContext(context, w.handle);
+        m_renderingContext.addBufferToRenderingContext(context, w.transferTargetResource);
     }
 }
 
